@@ -1,0 +1,46 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "itask-server.API", "itask-server.API\itask-server.API.csproj", "{7A7F1CE4-1145-4ED1-8048-3F18557FE41D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "itask-server.AppHost", "itask-server.AppHost\itask-server.AppHost.csproj", "{E902AD14-910C-405B-8607-6D5F83F864D3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "itask-server.ServiceDefaults", "itask-server.ServiceDefaults\itask-server.ServiceDefaults.csproj", "{57805B2F-6951-4C1F-9F2C-16343407E760}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "itask-server.Domain", "itask-server.Domain\itask-server.Domain.csproj", "{0F05E48E-91BA-498C-9469-6E8F384A3D43}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "itask-server.Infra", "itask-server.Infra\itask-server.Infra.csproj", "{23B697F4-26B7-448B-9632-222252A65A9F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "itask-server.Application", "itask-server.Application\itask-server.Application.csproj", "{61B30618-6DDB-441B-A1C8-8D91B0018506}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7A7F1CE4-1145-4ED1-8048-3F18557FE41D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A7F1CE4-1145-4ED1-8048-3F18557FE41D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A7F1CE4-1145-4ED1-8048-3F18557FE41D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A7F1CE4-1145-4ED1-8048-3F18557FE41D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E902AD14-910C-405B-8607-6D5F83F864D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E902AD14-910C-405B-8607-6D5F83F864D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E902AD14-910C-405B-8607-6D5F83F864D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E902AD14-910C-405B-8607-6D5F83F864D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57805B2F-6951-4C1F-9F2C-16343407E760}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57805B2F-6951-4C1F-9F2C-16343407E760}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57805B2F-6951-4C1F-9F2C-16343407E760}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57805B2F-6951-4C1F-9F2C-16343407E760}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F05E48E-91BA-498C-9469-6E8F384A3D43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F05E48E-91BA-498C-9469-6E8F384A3D43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F05E48E-91BA-498C-9469-6E8F384A3D43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F05E48E-91BA-498C-9469-6E8F384A3D43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23B697F4-26B7-448B-9632-222252A65A9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23B697F4-26B7-448B-9632-222252A65A9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23B697F4-26B7-448B-9632-222252A65A9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23B697F4-26B7-448B-9632-222252A65A9F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{61B30618-6DDB-441B-A1C8-8D91B0018506}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{61B30618-6DDB-441B-A1C8-8D91B0018506}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{61B30618-6DDB-441B-A1C8-8D91B0018506}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{61B30618-6DDB-441B-A1C8-8D91B0018506}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

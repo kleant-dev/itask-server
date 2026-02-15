@@ -1,0 +1,6 @@
+@itask_server.API_HostAddress = http://localhost:5003
+
+GET {{itask_server.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
