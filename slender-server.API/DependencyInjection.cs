@@ -187,11 +187,20 @@ public static class DependencyInjection
         builder.Services.AddTransient<ITokenProvider,TokenProvider>();
         
         builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
-        builder.Services.AddScoped<ITaskRepository,TaskRepository>();
-        builder.Services.AddScoped<IProjectRepository,ProjectRepository>();
+        builder.Services.AddScoped<ISortingService, SortingService>();
+        builder.Services.AddScoped<IUserContext, UserContext>();
+        builder.Services.AddScoped<IAuthService, AuthService>();
+        builder.Services.AddScoped<ITokenProvider, TokenProvider>();
+        builder.Services.AddScoped<IUserService, UserService>();
+        builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
         
         builder.Services.AddScoped<IUserRepository, UserRepository>();
         builder.Services.AddScoped<IUserContext,UserContext>();
+        builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+        builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
+        builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+        builder.Services.AddScoped<IWorkspaceMemberRepository, WorkspaceMemberRepository>();
+        builder.Services.AddScoped<IWorkspaceInviteRepository, WorkspaceInviteRepository>();
         
         
         builder.Services.AddMemoryCache();

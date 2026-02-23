@@ -1,20 +1,27 @@
-using System.Linq.Expressions;
+using slender_server.Domain.Models;
+using Task = slender_server.Domain.Entities.Task;
 
 namespace slender_server.Domain.Interfaces;
 
-public interface ITaskRepository : IRepository<Domain.Entities.Task>
+public interface ITaskRepository : IRepository<Task>
 {
-    Task<PagedResult<Domain.Entities.Task>> GetTasksByWorkspaceAsync<TDto>(
+    Task<PagedResult<Task>> GetTasksByWorkspaceAsync<TDto>(
         string workspaceId,
         int pageNumber,
         int pageSize,
-        string? status = null,
         string? sort = null,
+        string? status = null,
         CancellationToken ct = default);
     
-    Task<PagedResult<Domain.Entities.Task>> GetTasksByProjectAsync(
+    Task<PagedResult<Task>> GetTasksByProjectAsync(
         string projectId,
         int pageNumber,
         int pageSize,
+        string? sort = null,
+        CancellationToken ct = default);
+    
+    Task<List<Task>> GetUserTasksAsync(
+        string userId,
+        string? workspaceId = null,
         CancellationToken ct = default);
 }

@@ -1,7 +1,6 @@
-// slender-server.Application/Services/PaginationService.cs
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Pagination;
-using slender_server.Domain.Interfaces;
+using slender_server.Domain.Models;
 
 namespace slender_server.Application.Services;
 

@@ -7,37 +7,39 @@ namespace slender_server.Infra.Repositories;
 
 public sealed class WorkspaceInviteRepository : Repository<WorkspaceInvite>, IWorkspaceInviteRepository
 {
-    public WorkspaceInviteRepository(ApplicationDbContext context) : base(context)
+    public WorkspaceInviteRepository(ApplicationDbContext dbContext) : base(dbContext)
     {
     }
 
-    public async Task<WorkspaceInvite?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
+    public async Task<WorkspaceInvite?> GetByTokenAsync(string token, CancellationToken ct = default)
     {
         return await _dbSet
-            .Include(i => i.Workspace)
-            .Include(i => i.InvitedByUser)
-            .FirstOrDefaultAsync(i => i.Token == token, cancellationToken);
+            .Include(wi => wi.Workspace)
+            .Include(wi => wi.InvitedByUser)
+            .FirstOrDefaultAsync(wi => wi.Token == token, ct);
     }
 
-    public async Task<WorkspaceInvite?> GetPendingInviteAsync(string workspaceId, string email, CancellationToken cancellationToken = default)
+    public async Task<List<WorkspaceInvite>> GetPendingInvitesByWorkspaceAsync(
+        string workspaceId,
+        CancellationToken ct = default)
     {
         return await _dbSet
-            .FirstOrDefaultAsync(i => 
-                    i.WorkspaceId == workspaceId && 
-                    i.Email == email && 
-                    i.AcceptedAtUtc == null && 
-                    i.ExpiresAtUtc > DateTime.UtcNow, 
-                cancellationToken);
+            .Where(wi => wi.WorkspaceId == workspaceId && wi.AcceptedAtUtc == null)
+            .Where(wi => wi.ExpiresAtUtc > DateTime.UtcNow)
+            .OrderByDescending(wi => wi.CreatedAtUtc)
+            .ToListAsync(ct);
     }
 
-    public async Task<IEnumerable<WorkspaceInvite>> GetPendingInvitesForEmailAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<bool> HasPendingInviteAsync(
+        string workspaceId,
+        string email,
+        CancellationToken ct = default)
     {
-        return await _dbSet
-            .Include(i => i.Workspace)
-            .Where(i => 
-                i.Email == email && 
-                i.AcceptedAtUtc == null && 
-                i.ExpiresAtUtc > DateTime.UtcNow)
-            .ToListAsync(cancellationToken);
+        return await _dbSet.AnyAsync(
+            wi => wi.WorkspaceId == workspaceId &&
+                  wi.Email == email &&
+                  wi.AcceptedAtUtc == null &&
+                  wi.ExpiresAtUtc > DateTime.UtcNow,
+            ct);
     }
 }

@@ -57,7 +57,7 @@ public sealed class UserService : IUserService
         user.AvatarUrl = updateUserDto.AvatarUrl ?? user.AvatarUrl;
         user.UpdatedAtUtc = DateTime.UtcNow;
 
-        _userRepository.Update(user);
+        _userRepository.(user);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
         var userDto = new UserDto

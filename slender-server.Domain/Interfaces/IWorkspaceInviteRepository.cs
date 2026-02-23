@@ -4,7 +4,7 @@ namespace slender_server.Domain.Interfaces;
 
 public interface IWorkspaceInviteRepository : IRepository<WorkspaceInvite>
 {
-    Task<WorkspaceInvite?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
-    Task<WorkspaceInvite?> GetPendingInviteAsync(string workspaceId, string email, CancellationToken cancellationToken = default);
-    Task<IEnumerable<WorkspaceInvite>> GetPendingInvitesForEmailAsync(string email, CancellationToken cancellationToken = default);
+    Task<WorkspaceInvite?> GetByTokenAsync(string token, CancellationToken ct = default);
+    Task<List<WorkspaceInvite>> GetPendingInvitesByWorkspaceAsync(string workspaceId, CancellationToken ct = default);
+    Task<bool> HasPendingInviteAsync(string workspaceId, string email, CancellationToken ct = default);
 }
