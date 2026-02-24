@@ -1,18 +1,14 @@
+// Domain/Interfaces/IProjectRepository.cs
 using slender_server.Domain.Entities;
-using slender_server.Domain.Models;
 
 namespace slender_server.Domain.Interfaces;
 
 public interface IProjectRepository : IRepository<Project>
 {
-    Task<PagedResult<Project>> GetProjectsByWorkspaceAsync(
-        string workspaceId,
-        int pageNumber,
-        int pageSize,
-        string? status = null,
-        CancellationToken ct = default);
-    
-    Task<Project?> GetByIdWithDetailsAsync(
-        string projectId,
-        CancellationToken ct = default);
+    Task<Project?> GetByIdWithDetailsAsync(string id, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Project>> GetByWorkspaceIdAsync(string workspaceId, CancellationToken cancellationToken = default);
+    Task<bool> IsUserMemberAsync(string projectId, string userId, CancellationToken cancellationToken = default);
+    Task<string?> GetUserRoleAsync(string projectId, string userId, CancellationToken cancellationToken = default);
+    Task<int> GetTaskCountAsync(string projectId, CancellationToken cancellationToken = default);
+    Task<int> GetCompletedTaskCountAsync(string projectId, CancellationToken cancellationToken = default);
 }

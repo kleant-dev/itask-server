@@ -1,27 +1,15 @@
-using slender_server.Domain.Models;
+// Domain/Interfaces/ITaskRepository.cs
+
 using Task = slender_server.Domain.Entities.Task;
 
 namespace slender_server.Domain.Interfaces;
 
 public interface ITaskRepository : IRepository<Task>
 {
-    Task<PagedResult<Task>> GetTasksByWorkspaceAsync<TDto>(
-        string workspaceId,
-        int pageNumber,
-        int pageSize,
-        string? sort = null,
-        string? status = null,
-        CancellationToken ct = default);
-    
-    Task<PagedResult<Task>> GetTasksByProjectAsync(
-        string projectId,
-        int pageNumber,
-        int pageSize,
-        string? sort = null,
-        CancellationToken ct = default);
-    
-    Task<List<Task>> GetUserTasksAsync(
-        string userId,
-        string? workspaceId = null,
-        CancellationToken ct = default);
+    Task<Task?> GetByIdWithDetailsAsync(string id, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Task>> GetByProjectIdAsync(string projectId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Task>> GetByAssigneeIdAsync(string userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Task>> GetSubtasksAsync(string parentTaskId, CancellationToken cancellationToken = default);
+    Task<int> GetCommentCountAsync(string taskId, CancellationToken cancellationToken = default);
+    Task<int> GetAttachmentCountAsync(string taskId, CancellationToken cancellationToken = default);
 }

@@ -6,44 +6,38 @@ using slender_server.Infra.Database;
 
 namespace slender_server.Infra.Repositories;
 
-public class Repository<T> : IRepository<T> where T : class
+public class Repository<T>(ApplicationDbContext dbContext) : IRepository<T>
+    where T : class
 {
-    protected readonly ApplicationDbContext _dbContext;
-    protected readonly DbSet<T> _dbSet;
-
-    public Repository(ApplicationDbContext dbContext)
-    {
-        _dbContext = dbContext;
-        _dbSet = dbContext.Set<T>();
-    }
+    protected readonly DbSet<T> DbSet = dbContext.Set<T>();
 
     public virtual async Task<T?> GetByIdAsync(string id, CancellationToken ct = default)
     {
-        return await _dbSet.FindAsync([id], ct);
+        return await DbSet.FindAsync([id], ct);
     }
 
     public virtual async Task<List<T>> GetAllAsync(CancellationToken ct = default)
     {
-        return await _dbSet.ToListAsync(ct);
+        return await DbSet.ToListAsync(ct);
     }
 
     public virtual async Task<T> AddAsync(T entity, CancellationToken ct = default)
     {
-        await _dbSet.AddAsync(entity, ct);
-        await _dbContext.SaveChangesAsync(ct);
+        await DbSet.AddAsync(entity, ct);
+        await dbContext.SaveChangesAsync(ct);
         return entity;
     }
 
     public virtual async Task UpdateAsync(T entity, CancellationToken ct = default)
     {
-        _dbSet.Update(entity);
-        await _dbContext.SaveChangesAsync(ct);
+        DbSet.Update(entity);
+        await dbContext.SaveChangesAsync(ct);
     }
 
     public virtual async Task DeleteAsync(T entity, CancellationToken ct = default)
     {
-        _dbSet.Remove(entity);
-        await _dbContext.SaveChangesAsync(ct);
+        DbSet.Remove(entity);
+        await dbContext.SaveChangesAsync(ct);
     }
 
     public virtual async Task<PagedResult<T>> GetPagedAsync(
@@ -53,7 +47,7 @@ public class Repository<T> : IRepository<T> where T : class
         Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
         CancellationToken ct = default)
     {
-        IQueryable<T> query = _dbSet;
+        IQueryable<T> query = DbSet;
 
         // Apply filter
         if (filter is not null)

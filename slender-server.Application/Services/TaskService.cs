@@ -20,7 +20,6 @@ public sealed class TaskService(
         string? status = null,
         CancellationToken ct = default)
     {
-        // Validate sort
         if (!sortingService.ValidateSort<TaskDto, Domain.Entities.Task>(sort))
         {
             throw new ArgumentException("Invalid sort fields", nameof(sort));
@@ -28,13 +27,11 @@ public sealed class TaskService(
 
         string userId = await userContext.GetRequiredUserIdAsync(ct);
         
-        // Get paged and sorted results
-        var pagedResult = await taskRepository.GetTasksByWorkspaceAsync<TaskDto>(
-            workspaceId,
+        var pagedResult = await taskRepository.GetPagedAsync(
             paginationParams.PageNumber,
             paginationParams.PageSize,
-            sort,
-            status,
+            t => t.WorkspaceId == workspaceId && (status == null || t.Status.ToString() == status),
+            null,
             ct);
         
         return paginationService.MapToPagedResponse(pagedResult, MapToDto);

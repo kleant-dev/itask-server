@@ -17,7 +17,7 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
         string userId,
         CancellationToken ct = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(wm => wm.User)
             .Include(wm => wm.Workspace)
             .FirstOrDefaultAsync(
@@ -32,7 +32,7 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
         string? role = null,
         CancellationToken ct = default)
     {
-        var query = _dbSet
+        var query = DbSet
             .Include(wm => wm.User)
             .Where(wm => wm.WorkspaceId == workspaceId)
             .AsQueryable();
@@ -61,7 +61,7 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
         string userId,
         CancellationToken ct = default)
     {
-        return await _dbSet.AnyAsync(
+        return await DbSet.AnyAsync(
             wm => wm.WorkspaceId == workspaceId && wm.UserId == userId,
             ct);
     }
@@ -71,11 +71,48 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
         string userId,
         CancellationToken ct = default)
     {
-        var member = await _dbSet
+        var member = await DbSet
             .Where(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId)
             .Select(wm => (WorkspaceRole?)wm.Role)
             .FirstOrDefaultAsync(ct);
 
         return member;
+    }
+
+    public async Task<bool> IsMemberAsync(string workspaceId, string userId, CancellationToken ct = default)
+    {
+        return await DbSet.AnyAsync(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId, ct);
+    }
+
+    public async Task<WorkspaceMember?> GetMemberAsync(string workspaceId, string userId, CancellationToken ct = default)
+    {
+        return await DbSet
+            .Include(wm => wm.User)
+            .FirstOrDefaultAsync(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId, ct);
+    }
+
+    public void Update(WorkspaceMember member)
+    {
+        DbSet.Update(member);
+    }
+
+    public void Remove(WorkspaceMember member)
+    {
+        DbSet.Remove(member);
+    }
+
+    public async Task SaveChangesAsync(CancellationToken ct = default)
+    {
+        await _dbContext.SaveChangesAsync(ct);
+    }
+
+    public IQueryable<WorkspaceMember> Query()
+    {
+        return DbSet.AsQueryable();
+    }
+
+    public async Task<int> CountAsync(System.Linq.Expressions.Expression<Func<WorkspaceMember, bool>> predicate, CancellationToken ct = default)
+    {
+        return await DbSet.CountAsync(predicate, ct);
     }
 }

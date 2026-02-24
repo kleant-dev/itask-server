@@ -1,8 +1,8 @@
 // Application/Services/WorkspaceService.cs
+
 using slender_server.Application.DTOs.WorkspaceDTOs;
-using slender_server.Application.DTOs.WorkspaceMemberDTOs;
 using slender_server.Application.DTOs.WorkspaceInviteDTOs;
-using slender_server.Application.DTOs.UserDTOs;
+using slender_server.Application.DTOs.WorkspaceMemberDTOs;
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Common;
 using slender_server.Application.Models.Pagination;
@@ -11,39 +11,23 @@ using slender_server.Application.SortMappings;
 using slender_server.Domain.Entities;
 using slender_server.Domain.Interfaces;
 
-namespace slender_server.Application.Services;
+namespace slender_server.Infra.Services;
 
-public sealed class WorkspaceService : IWorkspaceService
+public sealed class WorkspaceService(
+    IWorkspaceRepository workspaceRepository,
+    IWorkspaceMemberRepository workspaceMemberRepository,
+    IWorkspaceInviteRepository workspaceInviteRepository,
+    IUserRepository userRepository,
+    IPaginationService paginationService,
+    ISortingService sortingService)
+    : IWorkspaceService
 {
-    private readonly IWorkspaceRepository _workspaceRepository;
-    private readonly IWorkspaceMemberRepository _workspaceMemberRepository;
-    private readonly IWorkspaceInviteRepository _workspaceInviteRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly IPaginationService _paginationService;
-    private readonly ISortingService _sortingService;
-
-    public WorkspaceService(
-        IWorkspaceRepository workspaceRepository,
-        IWorkspaceMemberRepository workspaceMemberRepository,
-        IWorkspaceInviteRepository workspaceInviteRepository,
-        IUserRepository userRepository,
-        IPaginationService paginationService,
-        ISortingService sortingService)
-    {
-        _workspaceRepository = workspaceRepository;
-        _workspaceMemberRepository = workspaceMemberRepository;
-        _workspaceInviteRepository = workspaceInviteRepository;
-        _userRepository = userRepository;
-        _paginationService = paginationService;
-        _sortingService = sortingService;
-    }
-
     public async Task<Result<WorkspaceDto>> CreateWorkspaceAsync(
         string userId, 
         CreateWorkspaceDto dto, 
         CancellationToken cancellationToken = default)
     {
-        var slugExists = await _workspaceRepository.SlugExistsAsync(dto.Slug, cancellationToken);
+        var slugExists = await workspaceRepository.SlugExistsAsync(dto.Slug, cancellationToken);
         if (slugExists)
         {
             return Result<WorkspaceDto>.Failure($"A workspace with slug '{dto.Slug}' already exists");
@@ -61,19 +45,18 @@ public sealed class WorkspaceService : IWorkspaceService
             UpdatedAtUtc = DateTime.UtcNow
         };
 
-        await _workspaceRepository.AddAsync(workspace, cancellationToken);
+        await workspaceRepository.AddAsync(workspace, cancellationToken);
 
         var ownerMember = new WorkspaceMember
         {
             WorkspaceId = workspace.Id,
             UserId = userId,
-            Role = "owner",
+            Role = WorkspaceRole.Owner,
             JoinedAtUtc = DateTime.UtcNow,
-            InvitedBy = null
+            InvitedByUserId = null
         };
 
-        await _workspaceMemberRepository.AddAsync(ownerMember, cancellationToken);
-        await _workspaceRepository.SaveChangesAsync(cancellationToken);
+        await workspaceMemberRepository.AddAsync(ownerMember, cancellationToken);
 
         var workspaceDto = new WorkspaceDto
         {
@@ -97,24 +80,24 @@ public sealed class WorkspaceService : IWorkspaceService
         string? fields,
         CancellationToken cancellationToken = default)
     {
-        var query = _workspaceRepository.Query()
+        var query = workspaceRepository.Query()
             .Where(w => w.Members.Any(m => m.UserId == userId));
 
         if (!string.IsNullOrEmpty(sort.OrderBy))
         {
-            query = _sortingService.ApplySort(query, sort.OrderBy, new WorkspaceSortMapping());
+            query = sortingService.ApplySort(query, sort.OrderBy, new WorkspaceSortMapping());
         }
         else
         {
             query = query.OrderByDescending(w => w.CreatedAtUtc);
         }
 
-        var totalCount = await _workspaceRepository.CountAsync(w => w.Members.Any(m => m.UserId == userId), cancellationToken);
+        var totalCount = await workspaceRepository.CountAsync(w => w.Members.Any(m => m.UserId == userId), cancellationToken);
 
-        var workspaces = query
+        var workspaces = await query
             .Skip((pagination.PageNumber - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
-            .ToList();
+            .ToListAsync(cancellationToken);
 
         var workspaceDtos = workspaces.Select(w => new WorkspaceDto
         {
@@ -128,7 +111,7 @@ public sealed class WorkspaceService : IWorkspaceService
             UpdatedAtUtc = w.UpdatedAtUtc
         }).ToList();
 
-        var pagedResponse = _paginationService.CreatePagedResponse(
+        var pagedResponse = paginationService.CreatePagedResponse(
             workspaceDtos,
             pagination,
             totalCount);
@@ -141,13 +124,13 @@ public sealed class WorkspaceService : IWorkspaceService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        var workspace = await _workspaceRepository.GetByIdWithMembersAsync(workspaceId, cancellationToken);
+        var workspace = await workspaceRepository.GetByIdWithMembersAsync(workspaceId, cancellationToken);
         if (workspace is null)
         {
             return Result<WorkspaceDto>.Failure("Workspace not found");
         }
 
-        var isMember = await _workspaceMemberRepository.IsMemberAsync(workspaceId, userId, cancellationToken);
+        var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, cancellationToken);
         if (!isMember)
         {
             return Result<WorkspaceDto>.Failure("You do not have access to this workspace");
@@ -174,13 +157,13 @@ public sealed class WorkspaceService : IWorkspaceService
         UpdateWorkspaceDto dto,
         CancellationToken cancellationToken = default)
     {
-        var workspace = await _workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
+        var workspace = await workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
         if (workspace is null)
         {
             return Result<WorkspaceDto>.Failure("Workspace not found");
         }
 
-        var role = await _workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
+        var role = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (role is null || (role != "owner" && role != "admin"))
         {
             return Result<WorkspaceDto>.Failure("You do not have permission to update this workspace");
@@ -191,8 +174,8 @@ public sealed class WorkspaceService : IWorkspaceService
         workspace.LogoUrl = dto.LogoUrl;
         workspace.UpdatedAtUtc = DateTime.UtcNow;
 
-        _workspaceRepository.Update(workspace);
-        await _workspaceRepository.SaveChangesAsync(cancellationToken);
+        workspaceRepository.Update(workspace);
+        await workspaceRepository.SaveChangesAsync(cancellationToken);
 
         var workspaceDto = new WorkspaceDto
         {
@@ -214,7 +197,7 @@ public sealed class WorkspaceService : IWorkspaceService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        var workspace = await _workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
+        var workspace = await workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
         if (workspace is null)
         {
             return Result.Failure("Workspace not found");
@@ -227,8 +210,8 @@ public sealed class WorkspaceService : IWorkspaceService
 
         workspace.DeletedAtUtc = DateTime.UtcNow;
         
-        _workspaceRepository.Update(workspace);
-        await _workspaceRepository.SaveChangesAsync(cancellationToken);
+        workspaceRepository.Update(workspace);
+        await workspaceRepository.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }
@@ -241,58 +224,40 @@ public sealed class WorkspaceService : IWorkspaceService
         string? role,
         CancellationToken cancellationToken = default)
     {
-        var isMember = await _workspaceMemberRepository.IsMemberAsync(workspaceId, userId, cancellationToken);
+        var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, cancellationToken);
         if (!isMember)
         {
             return Result<PagedResponse<WorkspaceMemberDto>>.Failure("You do not have access to this workspace");
         }
 
-        var query = _workspaceMemberRepository.Query()
+        var query = workspaceMemberRepository.Query()
+            .Include(m => m.User)
             .Where(m => m.WorkspaceId == workspaceId);
 
-        if (!string.IsNullOrEmpty(role))
+        if (!string.IsNullOrEmpty(role) && Enum.TryParse<WorkspaceRole>(role, true, out var roleEnum))
         {
-            query = query.Where(m => m.Role == role);
+            query = query.Where(m => m.Role == roleEnum);
         }
 
         query = query.OrderBy(m => m.JoinedAtUtc);
 
-        var totalCount = await _workspaceMemberRepository.CountAsync(m => m.WorkspaceId == workspaceId, cancellationToken);
+        var totalCount = await workspaceMemberRepository.CountAsync(m => m.WorkspaceId == workspaceId, cancellationToken);
 
-        var members = query
+        var members = await query
             .Skip((pagination.PageNumber - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
-            .ToList();
+            .ToListAsync(cancellationToken);
 
-        var memberDtos = new List<WorkspaceMemberDto>();
-        foreach (var member in members)
+        var memberDtos = members.Select(m => new WorkspaceMemberDto
         {
-            var user = await _userRepository.GetByIdAsync(member.UserId, cancellationToken);
-            if (user is not null)
-            {
-                memberDtos.Add(new WorkspaceMemberDto
-                {
-                    UserId = member.UserId,
-                    WorkspaceId = member.WorkspaceId,
-                    Role = member.Role,
-                    JoinedAtUtc = member.JoinedAtUtc,
-                    InvitedBy = member.InvitedBy,
-                    User = new UserDto
-                    {
-                        Id = user.Id,
-                        Email = user.Email,
-                        Name = user.Name,
-                        DisplayName = user.DisplayName,
-                        AvatarUrl = user.AvatarUrl,
-                        AvatarColor = user.AvatarColor,
-                        LastActiveAtUtc = user.LastActiveAtUtc,
-                        CreatedAtUtc = user.CreatedAtUtc
-                    }
-                });
-            }
-        }
+            UserId = m.UserId,
+            WorkspaceId = m.WorkspaceId,
+            Role = m.Role,
+            JoinedAtUtc = m.JoinedAtUtc,
+            InvitedByUserId = m.InvitedByUserId
+        }).ToList();
 
-        var pagedResponse = _paginationService.CreatePagedResponse(
+        var pagedResponse = paginationService.CreatePagedResponse(
             memberDtos,
             pagination,
             totalCount);
@@ -307,19 +272,19 @@ public sealed class WorkspaceService : IWorkspaceService
         string newRole,
         CancellationToken cancellationToken = default)
     {
-        var currentMemberRole = await _workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
+        var currentMemberRole = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (currentMemberRole is null || (currentMemberRole != "owner" && currentMemberRole != "admin"))
         {
             return Result<WorkspaceMemberDto>.Failure("You do not have permission to update member roles");
         }
 
-        var targetMember = await _workspaceMemberRepository.GetMemberAsync(workspaceId, targetUserId, cancellationToken);
+        var targetMember = await workspaceMemberRepository.GetMemberAsync(workspaceId, targetUserId, cancellationToken);
         if (targetMember is null)
         {
             return Result<WorkspaceMemberDto>.Failure("Member not found");
         }
 
-        if (targetMember.Role == "owner")
+        if (targetMember.Role == WorkspaceRole.Owner)
         {
             return Result<WorkspaceMemberDto>.Failure("Cannot change the role of the workspace owner");
         }
@@ -329,10 +294,17 @@ public sealed class WorkspaceService : IWorkspaceService
             return Result<WorkspaceMemberDto>.Failure("Only the owner can assign the owner role");
         }
 
-        targetMember.Role = newRole;
+        if (Enum.TryParse<WorkspaceRole>(newRole, true, out var roleEnum))
+        {
+            targetMember.Role = roleEnum;
+        }
+        else
+        {
+            return Result<WorkspaceMemberDto>.Failure("Invalid role");
+        }
         
-        _workspaceMemberRepository.Update(targetMember);
-        await _workspaceMemberRepository.SaveChangesAsync(cancellationToken);
+        workspaceMemberRepository.Update(targetMember);
+        await workspaceMemberRepository.SaveChangesAsync(cancellationToken);
 
         var memberDto = new WorkspaceMemberDto
         {
@@ -340,7 +312,7 @@ public sealed class WorkspaceService : IWorkspaceService
             WorkspaceId = targetMember.WorkspaceId,
             Role = targetMember.Role,
             JoinedAtUtc = targetMember.JoinedAtUtc,
-            InvitedBy = targetMember.InvitedBy
+            InvitedByUserId = targetMember.InvitedByUserId
         };
 
         return Result<WorkspaceMemberDto>.Success(memberDto);
@@ -352,30 +324,30 @@ public sealed class WorkspaceService : IWorkspaceService
         string targetUserId,
         CancellationToken cancellationToken = default)
     {
-        var currentMemberRole = await _workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
+        var currentMemberRole = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (currentMemberRole is null || (currentMemberRole != "owner" && currentMemberRole != "admin"))
         {
             return Result.Failure("You do not have permission to remove members");
         }
 
-        var targetMember = await _workspaceMemberRepository.GetMemberAsync(workspaceId, targetUserId, cancellationToken);
+        var targetMember = await workspaceMemberRepository.GetMemberAsync(workspaceId, targetUserId, cancellationToken);
         if (targetMember is null)
         {
             return Result.Failure("Member not found");
         }
 
-        if (targetMember.Role == "owner")
+        if (targetMember.Role == WorkspaceRole.Owner)
         {
             return Result.Failure("Cannot remove the workspace owner");
         }
 
-        if (currentMemberRole == "admin" && targetMember.Role == "admin")
+        if (currentMemberRole == "admin" && targetMember.Role == WorkspaceRole.Admin)
         {
             return Result.Failure("Admins cannot remove other admins");
         }
 
-        _workspaceMemberRepository.Remove(targetMember);
-        await _workspaceMemberRepository.SaveChangesAsync(cancellationToken);
+        workspaceMemberRepository.Remove(targetMember);
+        await workspaceMemberRepository.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }
@@ -386,30 +358,29 @@ public sealed class WorkspaceService : IWorkspaceService
         CreateWorkspaceInviteDto dto,
         CancellationToken cancellationToken = default)
     {
-        var workspace = await _workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
+        var workspace = await workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
         if (workspace is null)
         {
             return Result<WorkspaceInviteDto>.Failure("Workspace not found");
         }
 
-        var role = await _workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
+        var role = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (role is null || (role != "owner" && role != "admin"))
         {
             return Result<WorkspaceInviteDto>.Failure("You do not have permission to invite members");
         }
 
-        // Check if user with email exists and is already a member
-        var existingUser = await _userRepository.GetByEmailAsync(dto.Email, cancellationToken);
+        var existingUser = await userRepository.GetByEmailAsync(dto.Email, cancellationToken);
         if (existingUser is not null)
         {
-            var isMember = await _workspaceMemberRepository.IsMemberAsync(workspaceId, existingUser.Id, cancellationToken);
+            var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, existingUser.Id, cancellationToken);
             if (isMember)
             {
                 return Result<WorkspaceInviteDto>.Failure("User is already a member of this workspace");
             }
         }
 
-        var existingInvite = await _workspaceInviteRepository.GetPendingInviteAsync(workspaceId, dto.Email, cancellationToken);
+        var existingInvite = await workspaceInviteRepository.GetPendingInviteAsync(workspaceId, dto.Email, cancellationToken);
         if (existingInvite is not null)
         {
             return Result<WorkspaceInviteDto>.Failure("An active invite already exists for this email");
@@ -427,8 +398,8 @@ public sealed class WorkspaceService : IWorkspaceService
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        await _workspaceInviteRepository.AddAsync(invite, cancellationToken);
-        await _workspaceInviteRepository.SaveChangesAsync(cancellationToken);
+        await workspaceInviteRepository.AddAsync(invite, cancellationToken);
+        await workspaceInviteRepository.SaveChangesAsync(cancellationToken);
 
         var inviteDto = new WorkspaceInviteDto
         {
@@ -451,7 +422,7 @@ public sealed class WorkspaceService : IWorkspaceService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        var invite = await _workspaceInviteRepository.GetByTokenAsync(token, cancellationToken);
+        var invite = await workspaceInviteRepository.GetByTokenAsync(token, cancellationToken);
         if (invite is null)
         {
             return Result<WorkspaceMemberDto>.Failure("Invite not found");
@@ -467,7 +438,7 @@ public sealed class WorkspaceService : IWorkspaceService
             return Result<WorkspaceMemberDto>.Failure("Invite has expired");
         }
 
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user is null)
         {
             return Result<WorkspaceMemberDto>.Failure("User not found");
@@ -478,7 +449,7 @@ public sealed class WorkspaceService : IWorkspaceService
             return Result<WorkspaceMemberDto>.Failure("This invite is for a different email address");
         }
 
-        var isMember = await _workspaceMemberRepository.IsMemberAsync(invite.WorkspaceId, userId, cancellationToken);
+        var isMember = await workspaceMemberRepository.IsMemberAsync(invite.WorkspaceId, userId, cancellationToken);
         if (isMember)
         {
             return Result<WorkspaceMemberDto>.Failure("You are already a member of this workspace");
@@ -490,15 +461,15 @@ public sealed class WorkspaceService : IWorkspaceService
             UserId = userId,
             Role = invite.Role,
             JoinedAtUtc = DateTime.UtcNow,
-            InvitedBy = invite.InvitedByUserId
+            InvitedByUserId = invite.InvitedByUserId
         };
 
-        await _workspaceMemberRepository.AddAsync(member, cancellationToken);
+        await workspaceMemberRepository.AddAsync(member, cancellationToken);
 
         invite.AcceptedAtUtc = DateTime.UtcNow;
-        _workspaceInviteRepository.Update(invite);
+        workspaceInviteRepository.Update(invite);
         
-        await _workspaceInviteRepository.SaveChangesAsync(cancellationToken);
+        await workspaceInviteRepository.SaveChangesAsync(cancellationToken);
 
         var memberDto = new WorkspaceMemberDto
         {

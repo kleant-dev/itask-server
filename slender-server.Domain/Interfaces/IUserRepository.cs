@@ -1,8 +1,9 @@
+// Domain/Interfaces/IUserRepository.cs
 using slender_server.Domain.Entities;
 
 namespace slender_server.Domain.Interfaces;
 
-public interface IUserRepository
+public interface IUserRepository : IRepository<User>
 {
     Task<string?> GetIdByIdentityIdAsync(string identityId, CancellationToken ct);
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);

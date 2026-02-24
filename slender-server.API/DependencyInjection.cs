@@ -34,6 +34,7 @@ using slender_server.Application.Services;
 using slender_server.Application.SortMappings;
 using slender_server.Domain.Interfaces;
 using slender_server.Infra.Repositories;
+using slender_server.Infra.Services;
 
 namespace slender_server.API;
 
@@ -191,7 +192,6 @@ public static class DependencyInjection
         builder.Services.AddScoped<IUserContext, UserContext>();
         builder.Services.AddScoped<IAuthService, AuthService>();
         builder.Services.AddScoped<ITokenProvider, TokenProvider>();
-        builder.Services.AddScoped<IUserService, UserService>();
         builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
         
         builder.Services.AddScoped<IUserRepository, UserRepository>();

@@ -1,5 +1,3 @@
-// Application/Services/UserService.cs
-
 using slender_server.Application.DTOs.UserDTOs;
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Common;
@@ -7,18 +5,11 @@ using slender_server.Domain.Interfaces;
 
 namespace slender_server.Infra.Services;
 
-public sealed class UserService : IUserService
+public sealed class UserService(IUserRepository userRepository) : IUserService
 {
-    private readonly IUserRepository _userRepository;
-
-    public UserService(IUserRepository userRepository)
-    {
-        _userRepository = userRepository;
-    }
-
     public async Task<Result<UserDto>> GetCurrentUserAsync(string identityId, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
+        var user = await userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
         
         if (user is null)
         {
@@ -45,11 +36,16 @@ public sealed class UserService : IUserService
         UpdateUserDto updateUserDto, 
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
+        var user = await userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
         
         if (user is null)
         {
             return Result<UserDto>.Failure("User not found");
+        }
+
+        if (string.IsNullOrWhiteSpace(updateUserDto.Name))
+        {
+            return Result<UserDto>.Failure("Name is required");
         }
 
         user.Name = updateUserDto.Name;
@@ -57,8 +53,7 @@ public sealed class UserService : IUserService
         user.AvatarUrl = updateUserDto.AvatarUrl ?? user.AvatarUrl;
         user.UpdatedAtUtc = DateTime.UtcNow;
 
-        _userRepository.(user);
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await userRepository.UpdateAsync(user, cancellationToken);
 
         var userDto = new UserDto
         {
@@ -82,28 +77,27 @@ public sealed class UserService : IUserService
         string contentType, 
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
+        var user = await userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
         
         if (user is null)
         {
             return Result<string>.Failure("User not found");
         }
 
-        // TODO: Implement actual file upload to cloud storage
+        // TODO: Implement actual file upload to cloud storage (S3, Azure Blob, etc.)
         var avatarUrl = $"https://cdn.slender.app/avatars/{user.Id}/{fileName}";
         
         user.AvatarUrl = avatarUrl;
         user.UpdatedAtUtc = DateTime.UtcNow;
 
-        _userRepository.Update(user);
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await userRepository.UpdateAsync(user, cancellationToken);
 
         return Result<string>.Success(avatarUrl);
     }
 
     public async Task<Result> DeleteAccountAsync(string identityId, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
+        var user = await userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
         
         if (user is null)
         {
@@ -112,15 +106,14 @@ public sealed class UserService : IUserService
 
         user.DeletedAtUtc = DateTime.UtcNow;
         
-        _userRepository.Update(user);
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await userRepository.UpdateAsync(user, cancellationToken);
 
         return Result.Success();
     }
 
     public async Task<Result> UpdateLastActiveAsync(string identityId, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
+        var user = await userRepository.GetByIdentityIdAsync(identityId, cancellationToken);
         
         if (user is null)
         {
@@ -129,8 +122,7 @@ public sealed class UserService : IUserService
 
         user.LastActiveAtUtc = DateTime.UtcNow;
         
-        _userRepository.Update(user);
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await userRepository.UpdateAsync(user, cancellationToken);
 
         return Result.Success();
     }
