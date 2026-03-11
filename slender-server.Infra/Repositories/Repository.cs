@@ -6,9 +6,15 @@ using slender_server.Infra.Database;
 
 namespace slender_server.Infra.Repositories;
 
+/// <summary>
+/// Generic repository base. Intentionally does NOT call SaveChangesAsync internally —
+/// the Unit of Work (ApplicationDbContext / IUnitOfWork) is responsible for committing.
+/// This ensures multiple repository operations compose into a single atomic transaction.
+/// </summary>
 public class Repository<T>(ApplicationDbContext dbContext) : IRepository<T>
     where T : class
 {
+    protected readonly ApplicationDbContext _dbContext = dbContext;
     protected readonly DbSet<T> DbSet = dbContext.Set<T>();
 
     public virtual async Task<T?> GetByIdAsync(string id, CancellationToken ct = default)
@@ -21,23 +27,31 @@ public class Repository<T>(ApplicationDbContext dbContext) : IRepository<T>
         return await DbSet.ToListAsync(ct);
     }
 
+    /// <summary>
+    /// Stages the entity for insertion. Does NOT commit — call IUnitOfWork.SaveChangesAsync.
+    /// </summary>
     public virtual async Task<T> AddAsync(T entity, CancellationToken ct = default)
     {
         await DbSet.AddAsync(entity, ct);
-        await dbContext.SaveChangesAsync(ct);
         return entity;
     }
 
-    public virtual async Task UpdateAsync(T entity, CancellationToken ct = default)
+    /// <summary>
+    /// Marks the entity as modified. Does NOT commit — call IUnitOfWork.SaveChangesAsync.
+    /// </summary>
+    public virtual Task UpdateAsync(T entity, CancellationToken ct = default)
     {
         DbSet.Update(entity);
-        await dbContext.SaveChangesAsync(ct);
+        return Task.CompletedTask;
     }
 
-    public virtual async Task DeleteAsync(T entity, CancellationToken ct = default)
+    /// <summary>
+    /// Marks the entity for deletion. Does NOT commit — call IUnitOfWork.SaveChangesAsync.
+    /// </summary>
+    public virtual Task DeleteAsync(T entity, CancellationToken ct = default)
     {
         DbSet.Remove(entity);
-        await dbContext.SaveChangesAsync(ct);
+        return Task.CompletedTask;
     }
 
     public virtual async Task<PagedResult<T>> GetPagedAsync(
@@ -49,22 +63,14 @@ public class Repository<T>(ApplicationDbContext dbContext) : IRepository<T>
     {
         IQueryable<T> query = DbSet;
 
-        // Apply filter
         if (filter is not null)
-        {
             query = query.Where(filter);
-        }
 
-        // Get total count before pagination
         int totalCount = await query.CountAsync(ct);
 
-        // Apply ordering
         if (orderBy is not null)
-        {
             query = orderBy(query);
-        }
 
-        // Apply pagination
         List<T> items = await query
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)

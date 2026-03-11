@@ -9,4 +9,12 @@ public interface IWorkspaceMemberRepository : IRepository<WorkspaceMember>
     Task<PagedResult<WorkspaceMember>> GetWorkspaceMembersAsync(string workspaceId, int pageNumber, int pageSize, string? role = null, CancellationToken ct = default);
     Task<bool> IsUserInWorkspaceAsync(string workspaceId, string userId, CancellationToken ct = default);
     Task<WorkspaceRole?> GetUserRoleAsync(string workspaceId, string userId, CancellationToken ct = default);
+
+    // Additional members used by WorkspaceService
+    Task<bool> IsMemberAsync(string workspaceId, string userId, CancellationToken ct = default);
+    Task<WorkspaceMember?> GetMemberAsync(string workspaceId, string userId, CancellationToken ct = default);
+    IQueryable<WorkspaceMember> Query();
+    Task<int> CountAsync(System.Linq.Expressions.Expression<Func<WorkspaceMember, bool>> predicate, CancellationToken ct = default);
+    void Update(WorkspaceMember member);
+    void Remove(WorkspaceMember member);
 }

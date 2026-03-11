@@ -130,6 +130,7 @@ public static class DependencyInjection
         builder.Services.AddScoped<IPaginationService,PaginationService>();
         builder.Services.AddScoped<IDataShapingService,DataShapingService>();
         builder.Services.AddScoped<ISortingService, SortingService>();
+        builder.Services.AddScoped<ITaskService, TaskService>();
         
         builder.Services.AddSingleton<SortMappingDefinition<TaskDto, Domain.Entities.Task>, TaskSortMapping>();
         builder.Services.AddSingleton<SortMappingDefinition<ProjectDto, Domain.Entities.Project>, ProjectSortMapping>();
@@ -193,6 +194,11 @@ public static class DependencyInjection
         builder.Services.AddScoped<IAuthService, AuthService>();
         builder.Services.AddScoped<ITokenProvider, TokenProvider>();
         builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
+        builder.Services.AddScoped<IUserService,UserService>();
+        builder.Services.AddScoped<IProjectService, ProjectService>();
+        builder.Services.AddScoped<ILabelService, LabelService>();
+        builder.Services.AddScoped<INotificationService, NotificationService>();
+        builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
         
         builder.Services.AddScoped<IUserRepository, UserRepository>();
         builder.Services.AddScoped<IUserContext,UserContext>();
@@ -201,8 +207,9 @@ public static class DependencyInjection
         builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         builder.Services.AddScoped<IWorkspaceMemberRepository, WorkspaceMemberRepository>();
         builder.Services.AddScoped<IWorkspaceInviteRepository, WorkspaceInviteRepository>();
-        
-        
+        builder.Services.AddScoped<ILabelRepository, LabelRepository>();
+        builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<ApplicationDbContext>());
+
         builder.Services.AddMemoryCache();
         builder.Services.AddHttpContextAccessor();
 

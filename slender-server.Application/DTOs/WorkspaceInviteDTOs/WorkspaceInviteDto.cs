@@ -12,6 +12,8 @@ public sealed record WorkspaceInviteDto
     public DateTime ExpiresAtUtc { get; init; }
     public DateTime? AcceptedAtUtc { get; init; }
     public DateTime CreatedAtUtc { get; init; }
+    public required string Token { get; init; }
+    public string? InviteUrl { get; init; }
 }
 
 public static class WorkspaceInviteDtoExtensions
@@ -27,7 +29,8 @@ public static class WorkspaceInviteDtoExtensions
             Role = entity.Role,
             ExpiresAtUtc = entity.ExpiresAtUtc,
             AcceptedAtUtc = entity.AcceptedAtUtc,
-            CreatedAtUtc = entity.CreatedAtUtc
+            CreatedAtUtc = entity.CreatedAtUtc,
+            Token = entity.Token,
         };
     }
 }

@@ -20,9 +20,7 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
         return await DbSet
             .Include(wm => wm.User)
             .Include(wm => wm.Workspace)
-            .FirstOrDefaultAsync(
-                wm => wm.WorkspaceId == workspaceId && wm.UserId == userId,
-                ct);
+            .FirstOrDefaultAsync(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId, ct);
     }
 
     public async Task<PagedResult<WorkspaceMember>> GetWorkspaceMembersAsync(
@@ -37,16 +35,13 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
             .Where(wm => wm.WorkspaceId == workspaceId)
             .AsQueryable();
 
-        // Filter by role if specified
         if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<WorkspaceRole>(role, true, out var roleEnum))
         {
             query = query.Where(wm => wm.Role == roleEnum);
         }
 
-        // Get total count
         int totalCount = await query.CountAsync(ct);
 
-        // Apply pagination
         var items = await query
             .OrderBy(wm => wm.JoinedAtUtc)
             .Skip((pageNumber - 1) * pageSize)
@@ -56,27 +51,17 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
         return new PagedResult<WorkspaceMember>(items, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<bool> IsUserInWorkspaceAsync(
-        string workspaceId,
-        string userId,
-        CancellationToken ct = default)
+    public async Task<bool> IsUserInWorkspaceAsync(string workspaceId, string userId, CancellationToken ct = default)
     {
-        return await DbSet.AnyAsync(
-            wm => wm.WorkspaceId == workspaceId && wm.UserId == userId,
-            ct);
+        return await DbSet.AnyAsync(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId, ct);
     }
 
-    public async Task<WorkspaceRole?> GetUserRoleAsync(
-        string workspaceId,
-        string userId,
-        CancellationToken ct = default)
+    public async Task<WorkspaceRole?> GetUserRoleAsync(string workspaceId, string userId, CancellationToken ct = default)
     {
-        var member = await DbSet
+        return await DbSet
             .Where(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId)
             .Select(wm => (WorkspaceRole?)wm.Role)
             .FirstOrDefaultAsync(ct);
-
-        return member;
     }
 
     public async Task<bool> IsMemberAsync(string workspaceId, string userId, CancellationToken ct = default)
@@ -91,6 +76,18 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
             .FirstOrDefaultAsync(wm => wm.WorkspaceId == workspaceId && wm.UserId == userId, ct);
     }
 
+    public IQueryable<WorkspaceMember> Query()
+    {
+        return DbSet.AsQueryable();
+    }
+
+    public async Task<int> CountAsync(
+        System.Linq.Expressions.Expression<Func<WorkspaceMember, bool>> predicate,
+        CancellationToken ct = default)
+    {
+        return await DbSet.CountAsync(predicate, ct);
+    }
+
     public void Update(WorkspaceMember member)
     {
         DbSet.Update(member);
@@ -99,20 +96,5 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
     public void Remove(WorkspaceMember member)
     {
         DbSet.Remove(member);
-    }
-
-    public async Task SaveChangesAsync(CancellationToken ct = default)
-    {
-        await _dbContext.SaveChangesAsync(ct);
-    }
-
-    public IQueryable<WorkspaceMember> Query()
-    {
-        return DbSet.AsQueryable();
-    }
-
-    public async Task<int> CountAsync(System.Linq.Expressions.Expression<Func<WorkspaceMember, bool>> predicate, CancellationToken ct = default)
-    {
-        return await DbSet.CountAsync(predicate, ct);
     }
 }

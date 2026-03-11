@@ -43,19 +43,22 @@ public sealed class WorkspaceInviteRepository : Repository<WorkspaceInvite>, IWo
             ct);
     }
 
-    public async Task<WorkspaceInvite?> GetPendingInviteAsync(string workspaceId, string email, CancellationToken ct = default)
+    public async Task<WorkspaceInvite?> GetPendingInviteAsync(
+        string workspaceId,
+        string email,
+        CancellationToken ct = default)
     {
         return await DbSet
-            .FirstOrDefaultAsync(wi => wi.WorkspaceId == workspaceId && wi.Email == email && wi.AcceptedAtUtc == null && wi.ExpiresAtUtc > DateTime.UtcNow, ct);
+            .FirstOrDefaultAsync(
+                wi => wi.WorkspaceId == workspaceId &&
+                      wi.Email == email &&
+                      wi.AcceptedAtUtc == null &&
+                      wi.ExpiresAtUtc > DateTime.UtcNow,
+                ct);
     }
 
     public void Update(WorkspaceInvite invite)
     {
         DbSet.Update(invite);
-    }
-
-    public async Task SaveChangesAsync(CancellationToken ct = default)
-    {
-        await _dbContext.SaveChangesAsync(ct);
     }
 }

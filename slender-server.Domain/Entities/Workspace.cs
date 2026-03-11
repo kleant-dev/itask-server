@@ -15,5 +15,6 @@ public sealed class Workspace
     public User Owner { get; set; } = null!;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
     public static string NewId() => $"w-{Guid.CreateVersion7()}";
 }

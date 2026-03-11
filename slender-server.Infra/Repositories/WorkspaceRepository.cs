@@ -9,13 +9,11 @@ namespace slender_server.Infra.Repositories;
 public sealed class WorkspaceRepository(ApplicationDbContext dbContext)
     : Repository<Workspace>(dbContext), IWorkspaceRepository
 {
-    private readonly ApplicationDbContext _dbContext = dbContext;
-
     public async Task<Workspace?> GetByIdWithMembersAsync(string workspaceId, CancellationToken ct = default)
     {
         return await DbSet
             .Include(w => w.Members)
-            .ThenInclude(m => m.User)
+                .ThenInclude(m => m.User)
             .Include(w => w.Owner)
             .FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
     }
@@ -39,17 +37,24 @@ public sealed class WorkspaceRepository(ApplicationDbContext dbContext)
         return await DbSet.FirstOrDefaultAsync(w => w.Slug == slug, ct);
     }
 
-    public async Task<string?> GetMemberRoleAsync(string workspaceId, string userId, CancellationToken ct = default)
+    /// <summary>
+    /// Returns the workspace role of the user as a typed enum. Never returns a string.
+    /// Callers should compare against WorkspaceRole enum values, not strings.
+    /// </summary>
+    public async Task<WorkspaceRole?> GetMemberRoleAsync(string workspaceId, string userId, CancellationToken ct = default)
     {
-        var member = await _dbContext.WorkspaceMembers
-            .FirstOrDefaultAsync(m => m.WorkspaceId == workspaceId && m.UserId == userId, ct);
-        return member?.Role.ToString().ToLower();
+        return await _dbContext.WorkspaceMembers
+            .Where(m => m.WorkspaceId == workspaceId && m.UserId == userId)
+            .Select(m => (WorkspaceRole?)m.Role)
+            .FirstOrDefaultAsync(ct);
     }
 
     public async Task<bool> SlugExistsAsync(string slug, CancellationToken ct = default)
     {
-        var workspace = await _dbContext.Workspaces.SingleOrDefaultAsync(w => w.Slug == slug, cancellationToken: ct);
-        return workspace is not null;
+        // Note: application-level check only. The DB has a unique index on Slug
+        // which is the real enforcement. Catch DbUpdateException in the service
+        // to handle the rare race condition.
+        return await _dbContext.Workspaces.AnyAsync(w => w.Slug == slug, ct);
     }
 
     public IQueryable<Workspace> Query()
@@ -57,7 +62,9 @@ public sealed class WorkspaceRepository(ApplicationDbContext dbContext)
         return DbSet.AsQueryable();
     }
 
-    public async Task<int> CountAsync(System.Linq.Expressions.Expression<Func<Workspace, bool>> predicate, CancellationToken ct = default)
+    public async Task<int> CountAsync(
+        System.Linq.Expressions.Expression<Func<Workspace, bool>> predicate,
+        CancellationToken ct = default)
     {
         return await DbSet.CountAsync(predicate, ct);
     }
@@ -65,10 +72,5 @@ public sealed class WorkspaceRepository(ApplicationDbContext dbContext)
     public void Update(Workspace workspace)
     {
         DbSet.Update(workspace);
-    }
-
-    public async Task SaveChangesAsync(CancellationToken ct = default)
-    {
-        await _dbContext.SaveChangesAsync(ct);
     }
 }

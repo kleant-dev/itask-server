@@ -29,36 +29,36 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     using (var scope = app.Services.CreateScope())
     {
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
+        var services = scope.ServiceProvider;
+        var logger = services.GetRequiredService<ILogger<Program>>();
 
-    try
+        try
         {
-        var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-        var identityContext = services.GetRequiredService<ApplicationIdentityDbContext>();
-        var appContext = services.GetRequiredService<ApplicationDbContext>();
+            var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var identityContext = services.GetRequiredService<ApplicationIdentityDbContext>();
+            var appContext = services.GetRequiredService<ApplicationDbContext>();
 
         
-        logger.LogInformation("⏳ Applying Identity migrations...");
-        await identityContext.Database.MigrateAsync();
-        logger.LogInformation("✅ Identity migrations done");
+            logger.LogInformation("⏳ Applying Identity migrations...");
+            await identityContext.Database.MigrateAsync();
+            logger.LogInformation("✅ Identity migrations done");
 
-        logger.LogInformation("⏳ Applying Application migrations...");
-        await appContext.Database.MigrateAsync();
+            logger.LogInformation("⏳ Applying Application migrations...");
+            await appContext.Database.MigrateAsync();
             logger.LogInformation("✅ Application migrations done");
         
-        // Seed Identity
-        await IdentitySeeder.SeedAsync(userManager, roleManager);
+            // Seed Identity
+            await IdentitySeeder.SeedAsync(userManager, roleManager);
         
-        // Seed Application Data
-        await ApplicationSeeder.SeedAsync(appContext, userManager);
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "❌ Migration failed - {Message}", ex.Message);
-        throw; // fail fast so you know immediately
-    }
+            // Seed Application Data
+            await ApplicationSeeder.SeedAsync(appContext, userManager);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "❌ Migration failed - {Message}", ex.Message);
+            throw; // fail fast so you know immediately
+        }
     }
 
     await app.SeedInitialDataAsync();
@@ -73,7 +73,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 app.UseCors(CorsOptions.PolicyName);
 
 app.UseAuthentication();
