@@ -79,7 +79,16 @@ public static class DependencyInjection
             })
             .AddMvc();
 
-        builder.Services.AddOpenApi();
+        builder.Services.AddOpenApi(options =>
+        {
+            options.AddDocumentTransformer((document, context, ct) =>
+            {
+                document.Info.Title = "Slender API";
+                document.Info.Version = "1.0";
+                document.Info.Description = "Backend API for Slender. Use this schema for frontend type generation and API discovery.";
+                return Task.CompletedTask;
+            });
+        });
 
         builder.Services.AddResponseCaching();
 
@@ -130,7 +139,6 @@ public static class DependencyInjection
         builder.Services.AddScoped<IPaginationService,PaginationService>();
         builder.Services.AddScoped<IDataShapingService,DataShapingService>();
         builder.Services.AddScoped<ISortingService, SortingService>();
-        builder.Services.AddScoped<ITaskService, TaskService>();
         
         builder.Services.AddSingleton<SortMappingDefinition<TaskDto, Domain.Entities.Task>, TaskSortMapping>();
         builder.Services.AddSingleton<SortMappingDefinition<ProjectDto, Domain.Entities.Project>, ProjectSortMapping>();
@@ -186,28 +194,32 @@ public static class DependencyInjection
     
     public static WebApplicationBuilder AddInfrastructureServices(this WebApplicationBuilder builder)
     {
-        builder.Services.AddTransient<ITokenProvider,TokenProvider>();
-        
+        builder.Services.AddTransient<ITokenProvider, TokenProvider>();
         builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
-        builder.Services.AddScoped<ISortingService, SortingService>();
         builder.Services.AddScoped<IUserContext, UserContext>();
         builder.Services.AddScoped<IAuthService, AuthService>();
-        builder.Services.AddScoped<ITokenProvider, TokenProvider>();
         builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
-        builder.Services.AddScoped<IUserService,UserService>();
+        builder.Services.AddScoped<IUserService, UserService>();
+        builder.Services.AddScoped<ITaskService, TaskService>();
         builder.Services.AddScoped<IProjectService, ProjectService>();
         builder.Services.AddScoped<ILabelService, LabelService>();
         builder.Services.AddScoped<INotificationService, NotificationService>();
         builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
-        
+        builder.Services.AddScoped<IChannelService, ChannelService>();
+        builder.Services.AddScoped<IMessageService, MessageService>();
+        builder.Services.AddScoped<ICalendarEventService, CalendarEventService>();
+
         builder.Services.AddScoped<IUserRepository, UserRepository>();
-        builder.Services.AddScoped<IUserContext,UserContext>();
         builder.Services.AddScoped<ITaskRepository, TaskRepository>();
         builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
         builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         builder.Services.AddScoped<IWorkspaceMemberRepository, WorkspaceMemberRepository>();
         builder.Services.AddScoped<IWorkspaceInviteRepository, WorkspaceInviteRepository>();
         builder.Services.AddScoped<ILabelRepository, LabelRepository>();
+        builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
+        builder.Services.AddScoped<IChannelMemberRepository, ChannelMemberRepository>();
+        builder.Services.AddScoped<IMessageRepository, MessageRepository>();
+        builder.Services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();
         builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
         builder.Services.AddMemoryCache();

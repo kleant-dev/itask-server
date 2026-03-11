@@ -12,6 +12,4 @@ public interface IWorkspaceInviteRepository : IRepository<WorkspaceInvite>
     /// Returns a pending (not yet accepted, not expired) invite for the given workspace + email.
     /// </summary>
     Task<WorkspaceInvite?> GetPendingInviteAsync(string workspaceId, string email, CancellationToken ct = default);
-
-    void Update(WorkspaceInvite invite);
 }

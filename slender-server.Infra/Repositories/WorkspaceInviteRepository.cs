@@ -57,8 +57,4 @@ public sealed class WorkspaceInviteRepository : Repository<WorkspaceInvite>, IWo
                 ct);
     }
 
-    public void Update(WorkspaceInvite invite)
-    {
-        DbSet.Update(invite);
-    }
 }

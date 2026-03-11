@@ -18,5 +18,4 @@ public interface IWorkspaceRepository : IRepository<Workspace>
     Task<WorkspaceRole?> GetMemberRoleAsync(string workspaceId, string userId, CancellationToken ct = default);
 
     Task<int> CountAsync(System.Linq.Expressions.Expression<Func<Workspace, bool>> predicate, CancellationToken ct = default);
-    void Update(Workspace workspace);
 }

@@ -149,7 +149,7 @@ public sealed class WorkspaceService(
         // ApplyTo patches only non-null fields — safe for partial updates.
         dto.ApplyTo(workspace);
 
-        workspaceRepository.Update(workspace);
+        await workspaceRepository.UpdateAsync(workspace, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<WorkspaceDto>.Success(workspace.ToDto());
@@ -170,7 +170,7 @@ public sealed class WorkspaceService(
             return Result.Failure("Only the workspace owner can delete the workspace");
 
         workspace.DeletedAtUtc = DateTime.UtcNow;
-        workspaceRepository.Update(workspace);
+        await workspaceRepository.UpdateAsync(workspace, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
@@ -239,7 +239,7 @@ public sealed class WorkspaceService(
             return Result<WorkspaceMemberDto>.Failure("Cannot change the role of the workspace owner");
 
         targetMember.Role = roleEnum;
-        workspaceMemberRepository.Update(targetMember);
+        await workspaceMemberRepository.UpdateAsync(targetMember, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<WorkspaceMemberDto>.Success(targetMember.ToDto());
@@ -265,7 +265,7 @@ public sealed class WorkspaceService(
         if (currentMemberRole == WorkspaceRole.Admin && targetMember.Role == WorkspaceRole.Admin)
             return Result.Failure("Admins cannot remove other admins");
 
-        workspaceMemberRepository.Remove(targetMember);
+        await workspaceMemberRepository.DeleteAsync(targetMember, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
@@ -366,7 +366,7 @@ public sealed class WorkspaceService(
         // Atomic: both writes committed together — invite cannot be reused if member insert fails.
         await workspaceMemberRepository.AddAsync(member, cancellationToken);
         invite.AcceptedAtUtc = DateTime.UtcNow;
-        workspaceInviteRepository.Update(invite);
+        await workspaceInviteRepository.UpdateAsync(invite, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<WorkspaceMemberDto>.Success(member.ToDto());

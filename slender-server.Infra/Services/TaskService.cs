@@ -1,4 +1,3 @@
-// slender-server.Application/Services/TaskService.cs
 using slender_server.Application.DTOs.TaskDTOs;
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Common;
@@ -7,7 +6,7 @@ using slender_server.Domain.Entities;
 using slender_server.Domain.Interfaces;
 using Task = slender_server.Domain.Entities.Task;
 
-namespace slender_server.Application.Services;
+namespace slender_server.Infra.Services;
 
 public sealed class TaskService(
     ITaskRepository taskRepository,
@@ -25,12 +24,9 @@ public sealed class TaskService(
         string? status = null,
         CancellationToken ct = default)
     {
-        if (!sortingService.ValidateSort<TaskDto, Domain.Entities.Task>(sort))
-        {
+        if (!sortingService.ValidateSort<TaskDto, Task>(sort))
             throw new ArgumentException("Invalid sort fields", nameof(sort));
-        }
 
-        // User ID is resolved inside IUserContext; membership is enforced in repo/service layer
         _ = await userContext.GetRequiredUserIdAsync(ct);
 
         var pagedResult = await taskRepository.GetPagedAsync(
@@ -39,8 +35,8 @@ public sealed class TaskService(
             t => t.WorkspaceId == workspaceId && (status == null || t.Status.ToString() == status),
             null,
             ct);
-        
-        return paginationService.MapToPagedResponse(pagedResult, MapToDto);
+
+        return paginationService.MapToPagedResponse(pagedResult, t => t.ToDto());
     }
 
     public async Task<Result<TaskDto>> GetByIdAsync(string taskId, string userId, CancellationToken ct = default)
@@ -62,9 +58,7 @@ public sealed class TaskService(
         if (!isMember)
             return Result<TaskDto>.Failure("You do not have permission to create tasks in this workspace");
 
-        var create = dto with { CreatedById = userId };
-        var entity = create.ToEntity();
-
+        var entity = (dto with { CreatedById = userId }).ToEntity();
         await taskRepository.AddAsync(entity, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
@@ -98,26 +92,10 @@ public sealed class TaskService(
         if (!isMember)
             return Result.Failure("You do not have permission to delete this task");
 
-        // Soft-delete
         task.DeletedAtUtc = DateTime.UtcNow;
         await taskRepository.UpdateAsync(task, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success();
-    }
-
-    private static TaskDto MapToDto(Task task)
-    {
-        return new TaskDto()
-        {
-            Id = task.Id,
-            Title = task.Title,
-            Status = task.Status,
-            Priority = task.Priority,
-            ProjectId = task.ProjectId,
-            WorkspaceId = task.WorkspaceId,
-            DueDate = task.DueDate,
-            CreatedAtUtc = task.CreatedAtUtc
-        };
     }
 }

@@ -15,6 +15,4 @@ public interface IWorkspaceMemberRepository : IRepository<WorkspaceMember>
     Task<WorkspaceMember?> GetMemberAsync(string workspaceId, string userId, CancellationToken ct = default);
     IQueryable<WorkspaceMember> Query();
     Task<int> CountAsync(System.Linq.Expressions.Expression<Func<WorkspaceMember, bool>> predicate, CancellationToken ct = default);
-    void Update(WorkspaceMember member);
-    void Remove(WorkspaceMember member);
 }

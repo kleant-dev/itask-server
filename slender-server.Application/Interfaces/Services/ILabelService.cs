@@ -15,6 +15,8 @@ public interface ILabelService
         string userId,
         CancellationToken ct = default);
 
+    Task<Result<LabelDto>> GetByIdAsync(string labelId, string userId, CancellationToken ct = default);
+
     Task<Result<LabelDto>> UpdateLabelAsync(
         string labelId,
         string userId,

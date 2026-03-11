@@ -88,13 +88,4 @@ public sealed class WorkspaceMemberRepository : Repository<WorkspaceMember>, IWo
         return await DbSet.CountAsync(predicate, ct);
     }
 
-    public void Update(WorkspaceMember member)
-    {
-        DbSet.Update(member);
-    }
-
-    public void Remove(WorkspaceMember member)
-    {
-        DbSet.Remove(member);
-    }
 }

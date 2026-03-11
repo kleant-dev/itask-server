@@ -47,6 +47,17 @@ public sealed class LabelService(
         return Result<IReadOnlyCollection<LabelDto>>.Success(dtos);
     }
 
+    public async Task<Result<LabelDto>> GetByIdAsync(string labelId, string userId, CancellationToken ct = default)
+    {
+        var label = await labelRepository.GetByIdAsync(labelId, ct);
+        if (label is null)
+            return Result<LabelDto>.Failure("Label not found");
+        var isMember = await workspaceMemberRepository.IsMemberAsync(label.WorkspaceId, userId, ct);
+        if (!isMember)
+            return Result<LabelDto>.Failure("You do not have access to this label");
+        return Result<LabelDto>.Success(label.ToDto());
+    }
+
     public async Task<Result<LabelDto>> UpdateLabelAsync(
         string labelId,
         string userId,

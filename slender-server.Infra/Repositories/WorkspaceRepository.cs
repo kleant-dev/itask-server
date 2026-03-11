@@ -69,8 +69,4 @@ public sealed class WorkspaceRepository(ApplicationDbContext dbContext)
         return await DbSet.CountAsync(predicate, ct);
     }
 
-    public void Update(Workspace workspace)
-    {
-        DbSet.Update(workspace);
-    }
 }
