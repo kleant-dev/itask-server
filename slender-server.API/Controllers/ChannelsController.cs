@@ -48,7 +48,7 @@ public sealed class ChannelsController(
         return Ok(result.Value);
     }
 
-    [HttpGet("channels/{channelId}", Name = nameof(GetById))]
+    [HttpGet("channels/{channelId}")]
     public async Task<ActionResult<ChannelDto>> GetById(string channelId, CancellationToken ct)
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);

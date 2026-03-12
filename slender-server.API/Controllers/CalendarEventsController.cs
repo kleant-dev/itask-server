@@ -48,7 +48,7 @@ public sealed class CalendarEventsController(
         return Ok(result.Value);
     }
 
-    [HttpGet("calendar-events/{eventId}", Name = nameof(GetById))]
+    [HttpGet("calendar-events/{eventId}")]
     public async Task<ActionResult<CalendarEventDto>> GetById(string eventId, CancellationToken ct)
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);

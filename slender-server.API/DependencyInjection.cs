@@ -157,9 +157,10 @@ public static class DependencyInjection
             .AddEntityFrameworkStores<ApplicationIdentityDbContext>();
 
         builder.Services.Configure<JwtAuthOptions>(builder.Configuration.GetSection(JwtAuthOptions.SectionName));
-        JwtAuthOptions jwtAuthOptions = builder.Configuration
+        var jwtAuthOptions = builder.Configuration
             .GetSection(JwtAuthOptions.SectionName)
-            .Get<JwtAuthOptions>()!;
+            .Get<JwtAuthOptions>()
+            ?? throw new InvalidOperationException($"Configuration section '{JwtAuthOptions.SectionName}' is missing or invalid.");
 
         builder.Services
             .AddAuthentication(options =>
@@ -182,7 +183,12 @@ public static class DependencyInjection
                 {
                     ValidIssuer = jwtAuthOptions.Issuer,
                     ValidAudience = jwtAuthOptions.Audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtAuthOptions.Key))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtAuthOptions.Key)),
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ClockSkew = TimeSpan.FromSeconds(30)
                 };
             });
 
@@ -230,7 +236,8 @@ public static class DependencyInjection
     
     public static WebApplicationBuilder AddCorsPolicy(this WebApplicationBuilder builder)
     {
-        CorsOptions corsOptions = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>()!;
+        var corsOptions = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>()
+            ?? throw new InvalidOperationException($"Configuration section '{CorsOptions.SectionName}' is missing or invalid.");
 
         builder.Services.AddCors(options =>
         {

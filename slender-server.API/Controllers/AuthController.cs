@@ -9,7 +9,7 @@ using slender_server.Application.Interfaces.Services;
 namespace slender_server.API.Controllers;
 
 [ApiController]
-[Route("api/auth")]
+[Route("api/v{version:apiVersion}/auth")]
 [ApiVersionNeutral]
 public sealed class AuthController(
     IAuthService authService,

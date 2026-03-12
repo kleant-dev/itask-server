@@ -60,20 +60,11 @@ if (app.Environment.IsDevelopment())
             throw; // fail fast so you know immediately
         }
     }
-
-    await app.SeedInitialDataAsync();
-    
-    // await using var scope = app.Services.CreateAsyncScope();
-    //
-    // var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    // await appDb.Database.MigrateAsync();
-    //
-    // var identityDb = scope.ServiceProvider.GetRequiredService<ApplicationIdentityDbContext>();
-    // await identityDb.Database.MigrateAsync();
 }
 
 app.UseExceptionHandler();
 // app.UseHttpsRedirection();
+app.UseResponseCaching();
 app.UseCors(CorsOptions.PolicyName);
 
 app.UseAuthentication();

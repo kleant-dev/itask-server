@@ -39,7 +39,7 @@ public sealed class MessagesController(
         return Ok(result.Value);
     }
 
-    [HttpGet("messages/{messageId}", Name = nameof(GetById))]
+    [HttpGet("messages/{messageId}")]
     public async Task<ActionResult<MessageDto>> GetById(string messageId, CancellationToken ct)
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);

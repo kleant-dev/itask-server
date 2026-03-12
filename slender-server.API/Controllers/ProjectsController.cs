@@ -12,7 +12,7 @@ namespace slender_server.API.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/")]
 [ApiVersion(1.0)]
-[Authorize]
+[Authorize] 
 public sealed class ProjectsController(
     IProjectService projectService,
     IUserContext userContext,

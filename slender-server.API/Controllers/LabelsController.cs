@@ -37,7 +37,7 @@ public sealed class LabelsController(
         return Ok(result.Value);
     }
 
-    [HttpGet("labels/{labelId}", Name = nameof(GetById))]
+    [HttpGet("labels/{labelId}")]
     public async Task<ActionResult<LabelDto>> GetById(string labelId, CancellationToken ct)
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
