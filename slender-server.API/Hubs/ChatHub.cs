@@ -1,7 +1,10 @@
+// slender-server.API/Hubs/ChatHub.cs
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using slender_server.Application.DTOs.MessageDTOs;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Domain.Interfaces;
 
 namespace slender_server.API.Hubs;
 
@@ -13,8 +16,28 @@ namespace slender_server.API.Hubs;
 public sealed class ChatHub(
     IMessageService messageService,
     IChannelService channelService,
-    IUserContext userContext) : Hub
+    IUserRepository userRepository) : Hub
 {
+    // ── Auth helper ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resolves the application User.Id from the JWT NameIdentifier claim.
+    /// IUserContext cannot be used here — it reads from IHttpContextAccessor.HttpContext
+    /// which is null inside SignalR hub method invocations.
+    /// </summary>
+    private async Task<string> GetUserIdAsync(CancellationToken ct)
+    {
+        var identityId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(identityId))
+            throw new HubException("Not authenticated.");
+
+        var userId = await userRepository.GetIdByIdentityIdAsync(identityId, ct);
+        if (string.IsNullOrEmpty(userId))
+            throw new HubException("User not found.");
+
+        return userId;
+    }
+
     // ── Connection lifecycle ──────────────────────────────────────────────────
 
     public override async Task OnConnectedAsync()
@@ -29,26 +52,17 @@ public sealed class ChatHub(
 
     // ── Group management ─────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Subscribe to real-time messages in a specific channel.
-    /// </summary>
     public async Task JoinChannel(string channelId, CancellationToken ct = default)
     {
-        var userId = await userContext.GetRequiredUserIdAsync(ct);
+        var userId = await GetUserIdAsync(ct);
 
-        // Verify user has access to this channel
         var accessResult = await channelService.GetByIdAsync(channelId, userId, ct);
         if (!accessResult.IsSuccess)
-        {
             throw new HubException("Access denied to channel.");
-        }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, ChannelGroup(channelId), ct);
     }
 
-    /// <summary>
-    /// Unsubscribe from a channel group.
-    /// </summary>
     public async Task LeaveChannel(string channelId, CancellationToken ct = default)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChannelGroup(channelId), ct);
@@ -56,12 +70,9 @@ public sealed class ChatHub(
 
     // ── Messaging ─────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Send a message to a channel. Persists to DB then broadcasts to group.
-    /// </summary>
     public async Task SendMessage(SendMessageRequest request, CancellationToken ct = default)
     {
-        var userId = await userContext.GetRequiredUserIdAsync(ct);
+        var userId = await GetUserIdAsync(ct);
 
         var dto = new CreateMessageDto
         {
@@ -73,60 +84,43 @@ public sealed class ChatHub(
 
         var result = await messageService.CreateAsync(userId, dto, ct);
         if (!result.IsSuccess)
-        {
             throw new HubException(result.Error ?? "Failed to send message.");
-        }
 
-        // Broadcast to everyone in the channel group (including sender for confirmation)
         await Clients
             .Group(ChannelGroup(request.ChannelId))
             .SendAsync("ReceiveMessage", result.Value, cancellationToken: ct);
     }
 
-    /// <summary>
-    /// Edit an existing message. Only the author can edit.
-    /// </summary>
     public async Task EditMessage(EditMessageRequest request, CancellationToken ct = default)
     {
-        var userId = await userContext.GetRequiredUserIdAsync(ct);
+        var userId = await GetUserIdAsync(ct);
 
         var dto = new UpdateMessageDto { Body = request.Body };
         var result = await messageService.UpdateAsync(request.MessageId, userId, dto, ct);
         if (!result.IsSuccess)
-        {
             throw new HubException(result.Error ?? "Failed to edit message.");
-        }
 
         await Clients
             .Group(ChannelGroup(result.Value!.ChannelId))
             .SendAsync("MessageEdited", result.Value, cancellationToken: ct);
     }
 
-    /// <summary>
-    /// Delete a message. Only the author can delete.
-    /// </summary>
     public async Task DeleteMessage(string messageId, CancellationToken ct = default)
     {
-        var userId = await userContext.GetRequiredUserIdAsync(ct);
+        var userId = await GetUserIdAsync(ct);
 
         var result = await messageService.DeleteAsync(messageId, userId, ct);
         if (!result.IsSuccess)
-        {
             throw new HubException(result.Error ?? "Failed to delete message.");
-        }
 
-        // result.Value contains the channelId we deleted from
         await Clients
             .Group(ChannelGroup(result.Value!))
             .SendAsync("MessageDeleted", new { MessageId = messageId, ChannelId = result.Value }, cancellationToken: ct);
     }
 
-    /// <summary>
-    /// Broadcast typing indicator to other channel members.
-    /// </summary>
     public async Task Typing(string channelId, CancellationToken ct = default)
     {
-        var userId = await userContext.GetRequiredUserIdAsync(ct);
+        var userId = await GetUserIdAsync(ct);
 
         await Clients
             .OthersInGroup(ChannelGroup(channelId))
@@ -137,8 +131,6 @@ public sealed class ChatHub(
 
     private static string ChannelGroup(string channelId) => $"channel:{channelId}";
 }
-
-// ── Request records ───────────────────────────────────────────────────────────
 
 public sealed record SendMessageRequest(
     string ChannelId,

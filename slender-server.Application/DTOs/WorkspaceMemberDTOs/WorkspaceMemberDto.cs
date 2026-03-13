@@ -1,4 +1,5 @@
 using slender_server.Domain.Entities;
+using slender_server.Application.DTOs.UserDTOs;
 
 namespace slender_server.Application.DTOs.WorkspaceMemberDTOs;
 
@@ -9,6 +10,7 @@ public sealed record WorkspaceMemberDto
     public required WorkspaceRole Role { get; init; }
     public string? InvitedByUserId { get; init; }
     public DateTime JoinedAtUtc { get; init; }
+    public UserDto? User { get; init; }
 }
 
 public static class WorkspaceMemberDtoExtensions
@@ -21,7 +23,8 @@ public static class WorkspaceMemberDtoExtensions
             UserId = entity.UserId,
             Role = entity.Role,
             InvitedByUserId = entity.InvitedByUserId,
-            JoinedAtUtc = entity.JoinedAtUtc
+            JoinedAtUtc = entity.JoinedAtUtc,
+            User = entity.User is not null ? entity.User.ToDto() : null
         };
     }
 }

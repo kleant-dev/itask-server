@@ -191,6 +191,20 @@ public static class DependencyInjection
                     ValidateIssuerSigningKey = true,
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
+
+                options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            var token = context.Request.Query["access_token"];
+                            if (!string.IsNullOrEmpty(token) &&
+                                context.HttpContext.Request.Path.StartsWithSegments("/hubs/chat"))
+                            {
+                                context.Token = token;
+                            }
+                            return Task.CompletedTask;
+                        }
+                    };
             });
 
         builder.Services.AddAuthorization();
@@ -213,7 +227,6 @@ public static class DependencyInjection
         builder.Services.AddScoped<INotificationService, NotificationService>();
         builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
         builder.Services.AddScoped<IChannelService, ChannelService>();
-        builder.Services.AddScoped<IMessageService, MessageService>();
         builder.Services.AddScoped<ICalendarEventService, CalendarEventService>();
 
         builder.Services.AddScoped<IUserRepository, UserRepository>();
