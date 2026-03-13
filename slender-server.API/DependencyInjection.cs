@@ -93,6 +93,7 @@ public static class DependencyInjection
         builder.Services.AddResponseCaching();
 
         builder.Services.AddScoped<ILinkService, LinkService>();
+        builder.Services.AddSignalR(); 
 
         return builder;
     }
@@ -227,7 +228,7 @@ public static class DependencyInjection
         builder.Services.AddScoped<IMessageRepository, MessageRepository>();
         builder.Services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();
         builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<ApplicationDbContext>());
-
+        builder.Services.AddScoped<IMessageService, MessageService>();
         builder.Services.AddMemoryCache();
         builder.Services.AddHttpContextAccessor();
 

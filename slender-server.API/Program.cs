@@ -5,6 +5,7 @@ using slender_server.Infra.Database;
 using Microsoft.EntityFrameworkCore;
 using slender_server.Infra.Database.Seeders;
 using Microsoft.AspNetCore.Identity;
+using slender_server.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,7 +19,6 @@ builder.AddApiServices()
     .AddDatabase()
     .AddErrorHandling()
     .AddCorsPolicy();
-
 
 var app = builder.Build();
 
@@ -71,5 +71,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat"); 
 
 await app.RunAsync();
