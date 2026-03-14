@@ -52,26 +52,27 @@ public sealed class ChatHub(
 
     // ── Group management ─────────────────────────────────────────────────────
 
-    public async Task JoinChannel(string channelId, CancellationToken ct = default)
+    public async Task JoinChannel(string channelId)
     {
+        var ct = Context.ConnectionAborted;
         var userId = await GetUserIdAsync(ct);
-
         var accessResult = await channelService.GetByIdAsync(channelId, userId, ct);
         if (!accessResult.IsSuccess)
-            throw new HubException("Access denied to channel.");
-
+            throw new HubException($"Access denied to channel: {accessResult.Error}");
         await Groups.AddToGroupAsync(Context.ConnectionId, ChannelGroup(channelId), ct);
     }
 
-    public async Task LeaveChannel(string channelId, CancellationToken ct = default)
+    public async Task LeaveChannel(string channelId)
     {
+        var ct = Context.ConnectionAborted;
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChannelGroup(channelId), ct);
     }
 
     // ── Messaging ─────────────────────────────────────────────────────────────
 
-    public async Task SendMessage(SendMessageRequest request, CancellationToken ct = default)
+    public async Task SendMessage(SendMessageRequest request)
     {
+        var ct = Context.ConnectionAborted;
         var userId = await GetUserIdAsync(ct);
 
         var dto = new CreateMessageDto
@@ -91,8 +92,9 @@ public sealed class ChatHub(
             .SendAsync("ReceiveMessage", result.Value, cancellationToken: ct);
     }
 
-    public async Task EditMessage(EditMessageRequest request, CancellationToken ct = default)
+    public async Task EditMessage(EditMessageRequest request)
     {
+        var ct = Context.ConnectionAborted;
         var userId = await GetUserIdAsync(ct);
 
         var dto = new UpdateMessageDto { Body = request.Body };
@@ -105,8 +107,9 @@ public sealed class ChatHub(
             .SendAsync("MessageEdited", result.Value, cancellationToken: ct);
     }
 
-    public async Task DeleteMessage(string messageId, CancellationToken ct = default)
+    public async Task DeleteMessage(string messageId)
     {
+        var ct = Context.ConnectionAborted;
         var userId = await GetUserIdAsync(ct);
 
         var result = await messageService.DeleteAsync(messageId, userId, ct);
@@ -118,8 +121,9 @@ public sealed class ChatHub(
             .SendAsync("MessageDeleted", new { MessageId = messageId, ChannelId = result.Value }, cancellationToken: ct);
     }
 
-    public async Task Typing(string channelId, CancellationToken ct = default)
+    public async Task Typing(string channelId)
     {
+        var ct = Context.ConnectionAborted;
         var userId = await GetUserIdAsync(ct);
 
         await Clients
