@@ -1,4 +1,5 @@
 // slender-server.API/Hubs/ChatHub.cs
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -18,6 +19,9 @@ public sealed class ChatHub(
     IChannelService channelService,
     IUserRepository userRepository) : Hub
 {
+    // callId -> channelId mapping so we can route WebRTC signalling
+    private static readonly ConcurrentDictionary<string, string> CallChannelMap = new();
+
     // ── Auth helper ───────────────────────────────────────────────────────────
 
     /// <summary>
@@ -131,6 +135,130 @@ public sealed class ChatHub(
             .SendAsync("UserTyping", new { UserId = userId, ChannelId = channelId }, cancellationToken: ct);
     }
 
+    // ── 1:1 call signalling (audio / video via WebRTC) ────────────────────────
+
+    public async Task StartCall(StartCallRequest request)
+    {
+        var ct = Context.ConnectionAborted;
+        var userId = await GetUserIdAsync(ct);
+
+        if (!string.Equals(userId, request.FromUserId, StringComparison.Ordinal))
+            throw new HubException("Caller mismatch.");
+
+        // Ensure caller has access to the channel
+        var accessResult = await channelService.GetByIdAsync(request.ChannelId, userId, ct);
+        if (!accessResult.IsSuccess)
+            throw new HubException($"Access denied to channel: {accessResult.Error}");
+
+        // Track which channel this call belongs to for later signalling
+        CallChannelMap[request.CallId] = request.ChannelId;
+
+        // Notify all participants in the channel; clients will filter by ToUserId.
+        await Clients
+            .Group(ChannelGroup(request.ChannelId))
+            .SendAsync("IncomingCall", new
+            {
+                request.CallId,
+                request.ChannelId,
+                request.FromUserId,
+                request.ToUserId,
+                request.Kind
+            }, cancellationToken: ct);
+
+        // Also forward initial SDP offer as a CallSignal event.
+        await Clients
+            .Group(ChannelGroup(request.ChannelId))
+            .SendAsync("CallSignal", new
+            {
+                request.CallId,
+                FromUserId = request.FromUserId,
+                request.ToUserId,
+                Type = "offer",
+                Data = request.Sdp
+            }, cancellationToken: ct);
+    }
+
+    public async Task AcceptCall(AcceptCallRequest request)
+    {
+        var ct = Context.ConnectionAborted;
+        var userId = await GetUserIdAsync(ct);
+
+        if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
+            return;
+
+        // Optional: broadcast acceptance so UI can update if needed
+        await Clients
+            .Group(ChannelGroup(channelId))
+            .SendAsync("CallAccepted", new
+            {
+                request.CallId,
+                ChannelId = channelId,
+                AcceptedByUserId = userId
+            }, cancellationToken: ct);
+    }
+
+    public async Task RejectCall(RejectCallRequest request)
+    {
+        var ct = Context.ConnectionAborted;
+        var userId = await GetUserIdAsync(ct);
+
+        if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
+            return;
+
+        CallChannelMap.TryRemove(request.CallId, out _);
+
+        await Clients
+            .Group(ChannelGroup(channelId))
+            .SendAsync("CallEnded", new
+            {
+                request.CallId,
+                ChannelId = channelId,
+                EndedByUserId = userId,
+                Reason = "rejected"
+            }, cancellationToken: ct);
+    }
+
+    public async Task EndCall(EndCallRequest request)
+    {
+        var ct = Context.ConnectionAborted;
+        var userId = await GetUserIdAsync(ct);
+
+        if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
+            return;
+
+        CallChannelMap.TryRemove(request.CallId, out _);
+
+        await Clients
+            .Group(ChannelGroup(channelId))
+            .SendAsync("CallEnded", new
+            {
+                request.CallId,
+                ChannelId = channelId,
+                EndedByUserId = userId,
+                Reason = "ended"
+            }, cancellationToken: ct);
+    }
+
+    public async Task CallSignal(CallSignalRequest request)
+    {
+        var ct = Context.ConnectionAborted;
+        var userId = await GetUserIdAsync(ct);
+
+        if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
+            return;
+
+        await Clients
+            .Group(ChannelGroup(channelId))
+            .SendAsync("CallSignal", new
+            {
+                request.CallId,
+                FromUserId = userId,
+                request.ToUserId,
+                request.Type,
+                request.Data
+            }, cancellationToken: ct);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static string ChannelGroup(string channelId) => $"channel:{channelId}";
@@ -144,3 +272,29 @@ public sealed record SendMessageRequest(
 public sealed record EditMessageRequest(
     string MessageId,
     string Body);
+
+public sealed record StartCallRequest(
+    string CallId,
+    string ChannelId,
+    string FromUserId,
+    string ToUserId,
+    string Kind,
+    object Sdp);
+
+public sealed record AcceptCallRequest(
+    string CallId,
+    string ChannelId);
+
+public sealed record RejectCallRequest(
+    string CallId,
+    string ChannelId);
+
+public sealed record EndCallRequest(
+    string CallId,
+    string ChannelId);
+
+public sealed record CallSignalRequest(
+    string CallId,
+    string ToUserId,
+    string Type,
+    object Data);
