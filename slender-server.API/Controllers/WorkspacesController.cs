@@ -6,6 +6,7 @@ using slender_server.Application.DTOs.WorkspaceDTOs;
 using slender_server.Application.DTOs.WorkspaceInviteDTOs;
 using slender_server.Application.DTOs.WorkspaceMemberDTOs;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Application.Models.Common;
 using slender_server.Application.Models.Pagination;
 using slender_server.Application.Models.Sorting;
 
@@ -19,7 +20,9 @@ public sealed class WorkspacesController(
     IWorkspaceService workspaceService,
     IUserContext userContext,
     IValidator<CreateWorkspaceDto> createValidator,
-    IValidator<UpdateWorkspaceDto> updateValidator)
+    IValidator<UpdateWorkspaceDto> updateValidator,
+    ILogger<WorkspacesController> logger
+)
     : ControllerBase
 {
     // ─── Workspaces ──────────────────────────────────────────────────────────────
@@ -37,7 +40,7 @@ public sealed class WorkspacesController(
 
         return result.IsSuccess
             ? CreatedAtAction(nameof(GetWorkspace), new { workspaceId = result.Value!.Id }, result.Value)
-            : BadRequest(new { error = result.Error });
+            : BadRequest(new { error = result.ErrorMessage});
     }
 
     // GET api/v1/workspaces
@@ -53,7 +56,7 @@ public sealed class WorkspacesController(
 
         return result.IsSuccess
             ? Ok(result.Value)
-            : BadRequest(new { error = result.Error });
+            : BadRequest(new { error = result.ErrorMessage});
     }
 
     // GET api/v1/workspaces/{workspaceId}
@@ -67,7 +70,7 @@ public sealed class WorkspacesController(
 
         return result.IsSuccess
             ? Ok(result.Value)
-            : NotFound(new { error = result.Error });
+            : NotFound(new { error = result.ErrorMessage});
     }
 
     // PATCH api/v1/workspaces/{workspaceId}
@@ -84,9 +87,9 @@ public sealed class WorkspacesController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return Ok(result.Value);
@@ -103,9 +106,9 @@ public sealed class WorkspacesController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return NoContent();
@@ -128,9 +131,9 @@ public sealed class WorkspacesController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("access", StringComparison.OrdinalIgnoreCase)
+            return result.ErrorType.Equals(ErrorType.Forbidden)
                 ? Forbid()
-                : NotFound(new { error = result.Error });
+                : NotFound(new { error = result.ErrorMessage});
         }
 
         return Ok(result.Value);
@@ -150,9 +153,9 @@ public sealed class WorkspacesController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return Ok(result.Value);
@@ -171,9 +174,9 @@ public sealed class WorkspacesController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return NoContent();
@@ -206,9 +209,9 @@ public sealed class WorkspacesController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return Ok(result.Value);
@@ -225,9 +228,9 @@ public sealed class WorkspacesController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return Ok(result.Value);

@@ -39,7 +39,7 @@ public sealed class WorkspaceService(
     {
         var slugExists = await workspaceRepository.SlugExistsAsync(dto.Slug, cancellationToken);
         if (slugExists)
-            return Result<WorkspaceDto>.Failure($"A workspace with slug '{dto.Slug}' already exists");
+            return Result<WorkspaceDto>.Failure($"A workspace with slug '{dto.Slug}' already exists",ErrorType.Conflict);
 
         var workspace = new Workspace
         {
@@ -72,7 +72,7 @@ public sealed class WorkspaceService(
         catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("slug") == true ||
                                            ex.InnerException?.Message.Contains("unique") == true)
         {
-            return Result<WorkspaceDto>.Failure($"A workspace with slug '{dto.Slug}' already exists");
+            return Result<WorkspaceDto>.Failure($"A workspace with slug '{dto.Slug}' already exists",ErrorType.Conflict);
         }
 
         return Result<WorkspaceDto>.Success(workspace.ToDto());
@@ -120,14 +120,11 @@ public sealed class WorkspaceService(
     {
         var workspace = await workspaceRepository.GetByIdWithMembersAsync(workspaceId, cancellationToken);
         if (workspace is null)
-            return Result<WorkspaceDto>.Failure("Workspace not found");
+            return Result<WorkspaceDto>.Failure("Workspace not found",ErrorType.NotFound);
 
         // Use already-loaded Members — avoids a redundant DB round-trip.
         var isMember = workspace.Members.Any(m => m.UserId == userId);
-        if (!isMember)
-            return Result<WorkspaceDto>.Failure("You do not have access to this workspace");
-
-        return Result<WorkspaceDto>.Success(workspace.ToDto());
+        return !isMember ? Result<WorkspaceDto>.Failure("You do not have access to this workspace",ErrorType.Forbidden) : Result<WorkspaceDto>.Success(workspace.ToDto());
     }
 
     // ─── Update ──────────────────────────────────────────────────────────────────
@@ -140,11 +137,11 @@ public sealed class WorkspaceService(
     {
         var workspace = await workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
         if (workspace is null)
-            return Result<WorkspaceDto>.Failure("Workspace not found");
+            return Result<WorkspaceDto>.Failure("Workspace not found",ErrorType.NotFound);
 
         var role = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (!IsPrivileged(role))
-            return Result<WorkspaceDto>.Failure("You do not have permission to update this workspace");
+            return Result<WorkspaceDto>.Failure("You do not have permission to update this workspace",ErrorType.Forbidden);
 
         // ApplyTo patches only non-null fields — safe for partial updates.
         dto.ApplyTo(workspace);
@@ -164,10 +161,10 @@ public sealed class WorkspaceService(
     {
         var workspace = await workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
         if (workspace is null)
-            return Result.Failure("Workspace not found");
+            return Result.Failure("Workspace not found",ErrorType.NotFound);
 
         if (workspace.OwnerId != userId)
-            return Result.Failure("Only the workspace owner can delete the workspace");
+            return Result.Failure("Only the workspace owner can delete the workspace",ErrorType.Forbidden);
 
         workspace.DeletedAtUtc = DateTime.UtcNow;
         await workspaceRepository.UpdateAsync(workspace, cancellationToken);
@@ -188,7 +185,9 @@ public sealed class WorkspaceService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, cancellationToken);
         if (!isMember)
-            return Result<PagedResponse<WorkspaceMemberDto>>.Failure("You do not have access to this workspace");
+        {
+            return Result<PagedResponse<WorkspaceMemberDto>>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
+        }
 
         var query = workspaceMemberRepository.Query()
             .Include(m => m.User)
@@ -221,22 +220,22 @@ public sealed class WorkspaceService(
     {
         var currentMemberRole = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (!IsPrivileged(currentMemberRole))
-            return Result<WorkspaceMemberDto>.Failure("You do not have permission to update member roles");
+            return Result<WorkspaceMemberDto>.Failure("You do not have permission to update member roles",ErrorType.Forbidden);
 
         // Validate role string first — fail fast before extra DB queries.
         if (!Enum.TryParse<WorkspaceRole>(newRole, true, out var roleEnum))
-            return Result<WorkspaceMemberDto>.Failure("Invalid role");
+            return Result<WorkspaceMemberDto>.Failure("Invalid role",ErrorType.Validation);
 
         // Admins cannot elevate to Owner — compare enums, not strings.
         if (currentMemberRole == WorkspaceRole.Admin && roleEnum == WorkspaceRole.Owner)
-            return Result<WorkspaceMemberDto>.Failure("Only the owner can assign the owner role");
+            return Result<WorkspaceMemberDto>.Failure("Only the owner can assign the owner role",ErrorType.Forbidden);
 
         var targetMember = await workspaceMemberRepository.GetMemberAsync(workspaceId, targetUserId, cancellationToken);
         if (targetMember is null)
-            return Result<WorkspaceMemberDto>.Failure("Member not found");
+            return Result<WorkspaceMemberDto>.Failure("Member not found",ErrorType.NotFound);
 
         if (targetMember.Role == WorkspaceRole.Owner)
-            return Result<WorkspaceMemberDto>.Failure("Cannot change the role of the workspace owner");
+            return Result<WorkspaceMemberDto>.Failure("Cannot change the role of the workspace owner",ErrorType.Forbidden);
 
         targetMember.Role = roleEnum;
         await workspaceMemberRepository.UpdateAsync(targetMember, cancellationToken);
@@ -253,17 +252,17 @@ public sealed class WorkspaceService(
     {
         var currentMemberRole = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (!IsPrivileged(currentMemberRole))
-            return Result.Failure("You do not have permission to remove members");
+            return Result.Failure("You do not have permission to remove members",ErrorType.Forbidden);
 
         var targetMember = await workspaceMemberRepository.GetMemberAsync(workspaceId, targetUserId, cancellationToken);
         if (targetMember is null)
-            return Result.Failure("Member not found");
+            return Result.Failure("Member not found",ErrorType.NotFound);
 
         if (targetMember.Role == WorkspaceRole.Owner)
-            return Result.Failure("Cannot remove the workspace owner");
+            return Result.Failure("Cannot remove the workspace owner",ErrorType.Forbidden);
 
         if (currentMemberRole == WorkspaceRole.Admin && targetMember.Role == WorkspaceRole.Admin)
-            return Result.Failure("Admins cannot remove other admins");
+            return Result.Failure("Admins cannot remove other admins",ErrorType.Forbidden);
 
         await workspaceMemberRepository.DeleteAsync(targetMember, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -281,23 +280,23 @@ public sealed class WorkspaceService(
     {
         var workspace = await workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
         if (workspace is null)
-            return Result<WorkspaceInviteDto>.Failure("Workspace not found");
+            return Result<WorkspaceInviteDto>.Failure("Workspace not found",ErrorType.NotFound);
 
         var role = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (!IsPrivileged(role))
-            return Result<WorkspaceInviteDto>.Failure("You do not have permission to invite members");
+            return Result<WorkspaceInviteDto>.Failure("You do not have permission to invite members",ErrorType.Forbidden);
 
         var existingUser = await userRepository.GetByEmailAsync(dto.Email, cancellationToken);
         if (existingUser is not null)
         {
             var alreadyMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, existingUser.Id, cancellationToken);
             if (alreadyMember)
-                return Result<WorkspaceInviteDto>.Failure("User is already a member of this workspace");
+                return Result<WorkspaceInviteDto>.Failure("User is already a member of this workspace",ErrorType.Conflict);
         }
 
         var existingInvite = await workspaceInviteRepository.GetPendingInviteAsync(workspaceId, dto.Email, cancellationToken);
         if (existingInvite is not null)
-            return Result<WorkspaceInviteDto>.Failure("An active invite already exists for this email");
+            return Result<WorkspaceInviteDto>.Failure("An active invite already exists for this email",ErrorType.Conflict);
 
         var invite = new WorkspaceInvite
         {
@@ -335,24 +334,24 @@ public sealed class WorkspaceService(
     {
         var invite = await workspaceInviteRepository.GetByTokenAsync(token, cancellationToken);
         if (invite is null)
-            return Result<WorkspaceMemberDto>.Failure("Invite not found");
+            return Result<WorkspaceMemberDto>.Failure("Invite not found",ErrorType.NotFound);
 
         if (invite.AcceptedAtUtc is not null)
-            return Result<WorkspaceMemberDto>.Failure("Invite has already been accepted");
+            return Result<WorkspaceMemberDto>.Failure("Invite has already been accepted",ErrorType.Conflict);
 
         if (invite.ExpiresAtUtc < DateTime.UtcNow)
-            return Result<WorkspaceMemberDto>.Failure("Invite has expired");
+            return Result<WorkspaceMemberDto>.Failure("Invite has expired",ErrorType.Validation);
 
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user is null)
-            return Result<WorkspaceMemberDto>.Failure("User not found");
+            return Result<WorkspaceMemberDto>.Failure("User not found",ErrorType.NotFound);
 
         if (user.Email != invite.Email)
-            return Result<WorkspaceMemberDto>.Failure("This invite is for a different email address");
+            return Result<WorkspaceMemberDto>.Failure("This invite is for a different email address",ErrorType.Conflict);
 
         var isMember = await workspaceMemberRepository.IsMemberAsync(invite.WorkspaceId, userId, cancellationToken);
         if (isMember)
-            return Result<WorkspaceMemberDto>.Failure("You are already a member of this workspace");
+            return Result<WorkspaceMemberDto>.Failure("You are already a member of this workspace",ErrorType.Conflict);
 
         var member = new WorkspaceMember
         {

@@ -29,7 +29,7 @@ public sealed class UsersController(
 
         return result.IsSuccess
             ? Ok(result.Value)
-            : NotFound(new { error = result.Error });
+            : NotFound(new { error = result.ErrorMessage });
     }
 
     // PATCH api/v1/users/me
@@ -44,7 +44,7 @@ public sealed class UsersController(
 
         return result.IsSuccess
             ? Ok(result.Value)
-            : BadRequest(new { error = result.Error });
+            : BadRequest(new { error = result.ErrorMessage });
     }
 
     // DELETE api/v1/users/me
@@ -55,6 +55,6 @@ public sealed class UsersController(
 
         return result.IsSuccess
             ? NoContent()
-            : BadRequest(new { error = result.Error });
+            : BadRequest(new { error = result.ErrorMessage});
     }
 }

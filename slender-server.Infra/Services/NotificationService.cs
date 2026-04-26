@@ -26,9 +26,8 @@ public sealed class NotificationService(
         string userId,
         CancellationToken ct = default)
     {
-        var all = await notificationRepository.GetAllAsync(ct);
+        var all = await notificationRepository.GetAllAsync(predicate:(n)=>n.RecipientId == userId,ct:ct);
         var userNotifications = all
-            .Where(n => n.RecipientId == userId)
             .OrderByDescending(n => n.CreatedAtUtc)
             .Select(n => n.ToDto())
             .ToArray();
@@ -44,10 +43,10 @@ public sealed class NotificationService(
     {
         var notification = await notificationRepository.GetByIdAsync(notificationId, ct);
         if (notification is null)
-            return Result<NotificationDto>.Failure("Notification not found");
+            return Result<NotificationDto>.Failure("Notification not found",ErrorType.NotFound);
 
         if (notification.RecipientId != userId)
-            return Result<NotificationDto>.Failure("You cannot update this notification");
+            return Result<NotificationDto>.Failure("You cannot update this notification",ErrorType.Forbidden);
 
         dto.ApplyTo(notification);
         await notificationRepository.UpdateAsync(notification, ct);

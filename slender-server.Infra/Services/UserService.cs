@@ -13,7 +13,7 @@ public sealed class UserService(IUserRepository userRepository) : IUserService
         
         if (user is null)
         {
-            return Result<UserDto>.Failure("User not found");
+            return Result<UserDto>.Failure("User not found",ErrorType.NotFound);
         }
 
         var userDto = new UserDto
@@ -40,12 +40,12 @@ public sealed class UserService(IUserRepository userRepository) : IUserService
         
         if (user is null)
         {
-            return Result<UserDto>.Failure("User not found");
+            return Result<UserDto>.Failure("User not found",ErrorType.NotFound);
         }
 
         if (string.IsNullOrWhiteSpace(updateUserDto.Name))
         {
-            return Result<UserDto>.Failure("Name is required");
+            return Result<UserDto>.Failure("Name is required",ErrorType.Validation);
         }
 
         user.Name = updateUserDto.Name;
@@ -81,7 +81,7 @@ public sealed class UserService(IUserRepository userRepository) : IUserService
         
         if (user is null)
         {
-            return Result<string>.Failure("User not found");
+            return Result<string>.Failure("User not found",ErrorType.NotFound);
         }
 
         // TODO: Implement actual file upload to cloud storage (S3, Azure Blob, etc.)
@@ -101,7 +101,7 @@ public sealed class UserService(IUserRepository userRepository) : IUserService
         
         if (user is null)
         {
-            return Result.Failure("User not found");
+            return Result.Failure("User not found",ErrorType.NotFound);
         }
 
         user.DeletedAtUtc = DateTime.UtcNow;
@@ -117,7 +117,7 @@ public sealed class UserService(IUserRepository userRepository) : IUserService
         
         if (user is null)
         {
-            return Result.Failure("User not found");
+            return Result.Failure("User not found",ErrorType.NotFound);
         }
 
         user.LastActiveAtUtc = DateTime.UtcNow;

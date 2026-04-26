@@ -18,7 +18,7 @@ public sealed class ActivityLogService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(dto.WorkspaceId, dto.ActorId, ct);
         if (!isMember)
-            return Result<ActivityLogDto>.Failure("You do not have access to this workspace");
+            return Result<ActivityLogDto>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
         var entity = dto.ToEntity();
         await activityLogRepository.AddAsync(entity, ct);
@@ -34,11 +34,10 @@ public sealed class ActivityLogService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, ct);
         if (!isMember)
-            return Result<IReadOnlyCollection<ActivityLogDto>>.Failure("You do not have access to this workspace");
+            return Result<IReadOnlyCollection<ActivityLogDto>>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
-        var all = await activityLogRepository.GetAllAsync(ct);
+        var all = await activityLogRepository.GetAllAsync(predicate:(l)=>l.WorkspaceId == workspaceId,ct:ct);
         var logs = all
-            .Where(l => l.WorkspaceId == workspaceId)
             .OrderByDescending(l => l.CreatedAtUtc)
             .Select(l => l.ToDto())
             .ToArray();

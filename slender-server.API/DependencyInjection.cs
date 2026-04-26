@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Asp.Versioning;
 using FluentValidation;
 using slender_server.API.Middleware;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.IdentityModel.Tokens;
@@ -91,7 +93,32 @@ public static class DependencyInjection
         });
 
         builder.Services.AddResponseCaching();
+        builder.Services.AddRateLimiter(options =>
+            {
+                options.AddPolicy("auth-rate-limiting", httpContext =>
+                {
+                    string ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
+                    return RateLimitPartition.GetSlidingWindowLimiter(ip, _ => new SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        SegmentsPerWindow = 4,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    context.HttpContext.Response.Headers.RetryAfter = "60";
+
+                    await context.HttpContext.Response.WriteAsync(
+                        "Too many requests. Please try again later.", cancellationToken);
+                };
+            }
+        );
         builder.Services.AddScoped<ILinkService, LinkService>();
         builder.Services.AddSignalR(); 
 

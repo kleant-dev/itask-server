@@ -16,7 +16,6 @@ namespace slender_server.Infra.Services;
 public sealed class MessageService(
     ApplicationDbContext db,
     IRepository<Message> messageRepo,
-    IRepository<Channel> channelRepo,
     IUnitOfWork unitOfWork) : IMessageService
 {
     public async Task<Result<MessageDto>> CreateAsync(string userId, CreateMessageDto dto, CancellationToken ct)
@@ -27,11 +26,11 @@ public sealed class MessageService(
             .FirstOrDefaultAsync(c => c.Id == dto.ChannelId, ct);
 
         if (channel is null)
-            return Result<MessageDto>.Failure("Channel not found.");
+            return Result<MessageDto>.Failure("Channel not found.",ErrorType.NotFound);
 
         var isMember = channel.Members.Any(m => m.UserId == userId);
         if (!isMember)
-            return Result<MessageDto>.Failure("You are not a member of this channel.");
+            return Result<MessageDto>.Failure("You are not a member of this channel.",ErrorType.Forbidden);
 
         var message = dto.ToEntity();
         // Override AuthorId with verified userId (dto.AuthorId is set from hub but we re-verify)
@@ -54,7 +53,7 @@ public sealed class MessageService(
             .AnyAsync(m => m.ChannelId == channelId && m.UserId == userId, ct);
 
         if (!isMember)
-            return Result<PagedResponse<MessageDto>>.Failure("Access denied.");
+            return Result<PagedResponse<MessageDto>>.Failure("Access denied.",ErrorType.Forbidden);
 
         var query = db.Messages
             .Where(m => m.ChannelId == channelId)
@@ -81,10 +80,10 @@ public sealed class MessageService(
         var message = await db.Messages.FirstOrDefaultAsync(m => m.Id == messageId, ct);
 
         if (message is null)
-            return Result<MessageDto>.Failure("Message not found.");
+            return Result<MessageDto>.Failure("Message not found.",ErrorType.NotFound);
 
         if (message.AuthorId != userId)
-            return Result<MessageDto>.Failure("You can only edit your own messages.");
+            return Result<MessageDto>.Failure("You can only edit your own messages.",ErrorType.Forbidden);
 
         dto.ApplyTo(message);
 
@@ -99,10 +98,10 @@ public sealed class MessageService(
         var message = await db.Messages.FirstOrDefaultAsync(m => m.Id == messageId, ct);
 
         if (message is null)
-            return Result<string>.Failure("Message not found.");
+            return Result<string>.Failure("Message not found.",ErrorType.NotFound);
 
         if (message.AuthorId != userId)
-            return Result<string>.Failure("You can only delete your own messages.");
+            return Result<string>.Failure("You can only delete your own messages.",ErrorType.Forbidden);
 
         var channelId = message.ChannelId;
 

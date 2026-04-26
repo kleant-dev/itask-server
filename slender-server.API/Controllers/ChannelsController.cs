@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using slender_server.Application.DTOs.ChannelDTOs;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Application.Models.Common;
 using slender_server.Application.Models.Pagination;
 
 namespace slender_server.API.Controllers;
@@ -25,7 +26,7 @@ public sealed class ChannelsController(
         await createValidator.ValidateAndThrowAsync(dto, ct);
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.CreateAsync(userId, dto with { WorkspaceId = workspaceId }, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage });
         return CreatedAtAction(nameof(GetById), new { channelId = result.Value!.Id }, result.Value);
     }
 
@@ -34,7 +35,7 @@ public sealed class ChannelsController(
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.GetOrCreateDmAsync(userId, workspaceId, otherUserId, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -44,7 +45,7 @@ public sealed class ChannelsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.GetByWorkspaceAsync(workspaceId, userId, pagination, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("access", StringComparison.OrdinalIgnoreCase) ? Forbid() : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.Forbidden) ? Forbid() : BadRequest(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -53,7 +54,7 @@ public sealed class ChannelsController(
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.GetByIdAsync(channelId, userId, ct);
-        if (!result.IsSuccess) return NotFound(new { error = result.Error });
+        if (!result.IsSuccess) return NotFound(new { error = result.ErrorMessage});
         return Ok(result.Value);
     }
 
@@ -64,7 +65,7 @@ public sealed class ChannelsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.UpdateAsync(channelId, userId, dto, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound) ? NotFound(new { error = result.ErrorMessage}) : BadRequest(new { error = result.ErrorMessage});
         return Ok(result.Value);
     }
 
@@ -74,7 +75,7 @@ public sealed class ChannelsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.DeleteAsync(channelId, userId, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound) ? NotFound(new { error = result.ErrorMessage}) : BadRequest(new { error = result.ErrorMessage});
         return NoContent();
     }
 
@@ -84,7 +85,7 @@ public sealed class ChannelsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.GetMembersAsync(channelId, userId, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("access", StringComparison.OrdinalIgnoreCase) ? Forbid() : NotFound(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.Forbidden) ? Forbid() : NotFound(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -93,7 +94,7 @@ public sealed class ChannelsController(
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.JoinAsync(channelId, userId, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -102,7 +103,7 @@ public sealed class ChannelsController(
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await channelService.LeaveAsync(channelId, userId, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage });
         return NoContent();
     }
 }

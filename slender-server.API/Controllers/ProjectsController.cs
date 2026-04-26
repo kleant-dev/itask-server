@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using slender_server.Application.DTOs.ProjectDTOs;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Application.Models.Common;
 using slender_server.Application.Models.Pagination;
 using slender_server.Application.Models.Sorting;
 
@@ -33,7 +34,7 @@ public sealed class ProjectsController(
         var result = await projectService.CreateProjectAsync(workspaceId, userId, dto, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequest(new { error = result.Error });
+            return BadRequest(new { error = result.ErrorMessage});
 
         return CreatedAtAction(nameof(GetProject), new { projectId = result.Value!.Id }, result.Value);
     }
@@ -50,7 +51,7 @@ public sealed class ProjectsController(
         var result = await projectService.GetWorkspaceProjectsAsync(workspaceId, userId, pagination, sort, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequest(new { error = result.Error });
+            return BadRequest(new { error = result.ErrorMessage});
 
         return Ok(result.Value);
     }
@@ -65,7 +66,7 @@ public sealed class ProjectsController(
         var result = await projectService.GetProjectByIdAsync(projectId, userId, cancellationToken);
 
         if (!result.IsSuccess)
-            return NotFound(new { error = result.Error });
+            return NotFound(new { error = result.ErrorMessage});
 
         return Ok(result.Value);
     }
@@ -84,9 +85,9 @@ public sealed class ProjectsController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return Ok(result.Value);
@@ -103,9 +104,9 @@ public sealed class ProjectsController(
 
         if (!result.IsSuccess)
         {
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound)
+                ? NotFound(new { error = result.ErrorMessage})
+                : BadRequest(new { error = result.ErrorMessage});
         }
 
         return NoContent();

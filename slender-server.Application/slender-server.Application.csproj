@@ -16,4 +16,8 @@
       <ProjectReference Include="..\slender-server.Domain\slender-server.Domain.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Extensions\" />
+    </ItemGroup>
+
 </Project>

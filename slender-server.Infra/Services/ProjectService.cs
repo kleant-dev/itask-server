@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using slender_server.Application.DTOs.ProjectDTOs;
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Common;
@@ -14,9 +13,8 @@ public sealed class ProjectService(
     IWorkspaceRepository workspaceRepository,
     IWorkspaceMemberRepository workspaceMemberRepository,
     IUnitOfWork unitOfWork,
-    IPaginationService paginationService,
-    ISortingService sortingService,
-    ILogger<ProjectService> logger)
+    IPaginationService paginationService
+    )
     : IProjectService
 {
     private static bool IsPrivileged(WorkspaceRole? role) =>
@@ -31,11 +29,11 @@ public sealed class ProjectService(
         // Ensure workspace exists and user is a member
         var workspace = await workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
         if (workspace is null)
-            return Result<ProjectDto>.Failure("Workspace not found");
+            return Result<ProjectDto>.Failure("Workspace not found",ErrorType.NotFound);
 
         var role = await workspaceRepository.GetMemberRoleAsync(workspaceId, userId, cancellationToken);
         if (!IsPrivileged(role))
-            return Result<ProjectDto>.Failure("You do not have permission to create projects in this workspace");
+            return Result<ProjectDto>.Failure("You do not have permission to create projects in this workspace",ErrorType.Forbidden);
 
         // Ignore client-supplied workspace/owner IDs for safety
         var project = dto with { WorkspaceId = workspaceId, OwnerId = userId };
@@ -56,7 +54,7 @@ public sealed class ProjectService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, cancellationToken);
         if (!isMember)
-            return Result<PagedResponse<ProjectDto>>.Failure("You do not have access to this workspace");
+            return Result<PagedResponse<ProjectDto>>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
         var pagedResult = await projectRepository.GetPagedAsync(
             pagination.PageNumber,
@@ -77,11 +75,11 @@ public sealed class ProjectService(
     {
         var project = await projectRepository.GetByIdWithDetailsAsync(projectId, cancellationToken);
         if (project is null)
-            return Result<ProjectDto>.Failure("Project not found");
+            return Result<ProjectDto>.Failure("Project not found",ErrorType.NotFound);
 
         var isWorkspaceMember = await workspaceMemberRepository.IsMemberAsync(project.WorkspaceId, userId, cancellationToken);
         if (!isWorkspaceMember)
-            return Result<ProjectDto>.Failure("You do not have access to this project");
+            return Result<ProjectDto>.Failure("You do not have access to this project",ErrorType.Forbidden);
 
         return Result<ProjectDto>.Success(project.ToDto());
     }
@@ -94,11 +92,11 @@ public sealed class ProjectService(
     {
         var project = await projectRepository.GetByIdAsync(projectId, cancellationToken);
         if (project is null)
-            return Result<ProjectDto>.Failure("Project not found");
+            return Result<ProjectDto>.Failure("Project not found",ErrorType.NotFound);
 
         var role = await workspaceRepository.GetMemberRoleAsync(project.WorkspaceId, userId, cancellationToken);
         if (!IsPrivileged(role) && project.OwnerId != userId)
-            return Result<ProjectDto>.Failure("You do not have permission to update this project");
+            return Result<ProjectDto>.Failure("You do not have permission to update this project",ErrorType.Forbidden);
 
         dto.ApplyTo(project);
         await projectRepository.UpdateAsync(project,cancellationToken);
@@ -114,11 +112,11 @@ public sealed class ProjectService(
     {
         var project = await projectRepository.GetByIdAsync(projectId, cancellationToken);
         if (project is null)
-            return Result.Failure("Project not found");
+            return Result.Failure("Project not found",ErrorType.NotFound);
 
         var role = await workspaceRepository.GetMemberRoleAsync(project.WorkspaceId, userId, cancellationToken);
         if (!IsPrivileged(role) && project.OwnerId != userId)
-            return Result.Failure("You do not have permission to archive this project");
+            return Result.Failure("You do not have permission to archive this project",ErrorType.Forbidden);
 
         project.ArchivedAtUtc = DateTime.UtcNow;
         project.UpdatedAtUtc = DateTime.UtcNow;

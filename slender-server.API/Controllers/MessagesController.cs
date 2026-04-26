@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using slender_server.Application.DTOs.MessageDTOs;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Application.Models.Common;
 using slender_server.Application.Models.Pagination;
 
 namespace slender_server.API.Controllers;
@@ -34,9 +35,9 @@ public sealed class MessagesController(
         var result = await messageService.GetByChannelAsync(channelId, userId, pagination, ct);
 
         if (!result.IsSuccess)
-            return result.Error!.Contains("access", StringComparison.OrdinalIgnoreCase)
+            return result.ErrorType.Equals(ErrorType.Forbidden)
                 ? Forbid()
-                : BadRequest(new { error = result.Error });
+                : BadRequest(new { error = result.ErrorMessage});
 
         return Ok(result.Value);
     }

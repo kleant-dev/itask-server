@@ -22,9 +22,14 @@ public class Repository<T>(ApplicationDbContext dbContext) : IRepository<T>
         return await DbSet.FindAsync([id], ct);
     }
 
-    public virtual async Task<List<T>> GetAllAsync(CancellationToken ct = default)
+    public virtual async Task<List<T>> GetAllAsync(Expression<Func<T, bool>>? predicate = null,CancellationToken ct = default)
     {
-        return await DbSet.ToListAsync(ct);
+        IQueryable<T> query = DbSet;
+        if (predicate is not null)
+        {
+            query = query.Where(predicate);
+        }
+        return await query.ToListAsync(ct);
     }
 
     /// <summary>

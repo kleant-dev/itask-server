@@ -17,6 +17,7 @@ namespace slender_server.API.Hubs;
 public sealed class ChatHub(
     IMessageService messageService,
     IChannelService channelService,
+    ILogger<ChatHub> logger,
     IUserRepository userRepository) : Hub
 {
     // callId -> channelId mapping so we can route WebRTC signalling
@@ -62,7 +63,7 @@ public sealed class ChatHub(
         var userId = await GetUserIdAsync(ct);
         var accessResult = await channelService.GetByIdAsync(channelId, userId, ct);
         if (!accessResult.IsSuccess)
-            throw new HubException($"Access denied to channel: {accessResult.Error}");
+            throw new HubException($"Access denied to channel: {accessResult.ErrorMessage}");
         await Groups.AddToGroupAsync(Context.ConnectionId, ChannelGroup(channelId), ct);
     }
 
@@ -86,10 +87,11 @@ public sealed class ChatHub(
             Body = request.Body,
             ReplyToId = request.ReplyToId
         };
-
         var result = await messageService.CreateAsync(userId, dto, ct);
         if (!result.IsSuccess)
-            throw new HubException(result.Error ?? "Failed to send message.");
+            throw new HubException(result.ErrorMessage ?? "Failed to send message.");
+        
+        logger.LogDebug("Message sent to channel {ChannelId} by user {UserId}", request.ChannelId, userId);
 
         await Clients
             .Group(ChannelGroup(request.ChannelId))
@@ -104,7 +106,7 @@ public sealed class ChatHub(
         var dto = new UpdateMessageDto { Body = request.Body };
         var result = await messageService.UpdateAsync(request.MessageId, userId, dto, ct);
         if (!result.IsSuccess)
-            throw new HubException(result.Error ?? "Failed to edit message.");
+            throw new HubException(result.ErrorMessage ?? "Failed to edit message.");
 
         await Clients
             .Group(ChannelGroup(result.Value!.ChannelId))
@@ -118,7 +120,7 @@ public sealed class ChatHub(
 
         var result = await messageService.DeleteAsync(messageId, userId, ct);
         if (!result.IsSuccess)
-            throw new HubException(result.Error ?? "Failed to delete message.");
+            throw new HubException(result.ErrorMessage ?? "Failed to delete message.");
 
         await Clients
             .Group(ChannelGroup(result.Value!))
@@ -148,7 +150,7 @@ public sealed class ChatHub(
         // Ensure caller has access to the channel
         var accessResult = await channelService.GetByIdAsync(request.ChannelId, userId, ct);
         if (!accessResult.IsSuccess)
-            throw new HubException($"Access denied to channel: {accessResult.Error}");
+            throw new HubException($"Access denied to channel: {accessResult.ErrorMessage}");
 
         // Track which channel this call belongs to for later signalling
         CallChannelMap[request.CallId] = request.ChannelId;
@@ -171,7 +173,7 @@ public sealed class ChatHub(
             .SendAsync("CallSignal", new
             {
                 request.CallId,
-                FromUserId = request.FromUserId,
+                request.FromUserId,
                 request.ToUserId,
                 Type = "offer",
                 Data = request.Sdp

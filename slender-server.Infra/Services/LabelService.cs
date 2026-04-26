@@ -19,11 +19,11 @@ public sealed class LabelService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(dto.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result<LabelDto>.Failure("You do not have permission to create labels in this workspace");
+            return Result<LabelDto>.Failure("You do not have permission to create labels in this workspace",ErrorType.Forbidden);
 
         var exists = await labelRepository.ExistsAsync(dto.WorkspaceId, dto.Name, ct);
         if (exists)
-            return Result<LabelDto>.Failure("A label with this name already exists in this workspace");
+            return Result<LabelDto>.Failure("A label with this name already exists in this workspace",ErrorType.Conflict);
 
         var entity = dto.ToEntity();
         await labelRepository.AddAsync(entity, ct);
@@ -39,7 +39,7 @@ public sealed class LabelService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, ct);
         if (!isMember)
-            return Result<IReadOnlyCollection<LabelDto>>.Failure("You do not have access to this workspace");
+            return Result<IReadOnlyCollection<LabelDto>>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
         var labels = await labelRepository.GetByWorkspaceIdAsync(workspaceId, ct);
         var dtos = labels.Select(l => l.ToDto()).ToArray();
@@ -51,10 +51,10 @@ public sealed class LabelService(
     {
         var label = await labelRepository.GetByIdAsync(labelId, ct);
         if (label is null)
-            return Result<LabelDto>.Failure("Label not found");
+            return Result<LabelDto>.Failure("Label not found",ErrorType.NotFound);
         var isMember = await workspaceMemberRepository.IsMemberAsync(label.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result<LabelDto>.Failure("You do not have access to this label");
+            return Result<LabelDto>.Failure("You do not have access to this label",ErrorType.Forbidden);
         return Result<LabelDto>.Success(label.ToDto());
     }
 
@@ -66,11 +66,11 @@ public sealed class LabelService(
     {
         var label = await labelRepository.GetByIdAsync(labelId, ct);
         if (label is null)
-            return Result<LabelDto>.Failure("Label not found");
+            return Result<LabelDto>.Failure("Label not found",ErrorType.NotFound);
 
         var isMember = await workspaceMemberRepository.IsMemberAsync(label.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result<LabelDto>.Failure("You do not have permission to update this label");
+            return Result<LabelDto>.Failure("You do not have permission to update this label",ErrorType.Forbidden);
 
         dto.ApplyTo(label);
         await labelRepository.UpdateAsync(label, ct);
@@ -86,15 +86,15 @@ public sealed class LabelService(
     {
         var label = await labelRepository.GetByIdAsync(labelId, ct);
         if (label is null)
-            return Result.Failure("Label not found");
+            return Result.Failure("Label not found",ErrorType.NotFound);
 
         var isMember = await workspaceMemberRepository.IsMemberAsync(label.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result.Failure("You do not have permission to delete this label");
+            return Result.Failure("You do not have permission to delete this label",ErrorType.Forbidden);
 
         var usageCount = await labelRepository.GetUsageCountAsync(label.Id, ct);
         if (usageCount > 0)
-            return Result.Failure("Cannot delete a label that is in use");
+            return Result.Failure("Cannot delete a label that is in use",ErrorType.Conflict);
 
         await labelRepository.DeleteAsync(label, ct);
         await unitOfWork.SaveChangesAsync(ct);

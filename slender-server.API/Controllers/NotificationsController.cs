@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using slender_server.Application.DTOs.NotificationDTOs;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Application.Models.Common;
 
 namespace slender_server.API.Controllers;
 
@@ -18,7 +19,7 @@ public sealed class NotificationsController(INotificationService notificationSer
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await notificationService.GetUserNotificationsAsync(userId, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage});
         return Ok(result.Value);
     }
 
@@ -28,7 +29,7 @@ public sealed class NotificationsController(INotificationService notificationSer
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await notificationService.UpdateNotificationAsync(notificationId, userId, new UpdateNotificationDto { ReadAtUtc = DateTime.UtcNow }, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound) ? NotFound(new { error = result.ErrorMessage}) : BadRequest(new { error = result.ErrorMessage});
         return Ok(result.Value);
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using slender_server.Application.DTOs.CalendarEventDTOs;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Application.Models.Common;
 
 namespace slender_server.API.Controllers;
 
@@ -24,7 +25,7 @@ public sealed class CalendarEventsController(
         await createValidator.ValidateAndThrowAsync(dto, ct);
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await calendarEventService.CreateAsync(userId, dto with { WorkspaceId = workspaceId, CreatedById = userId }, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage });
         return CreatedAtAction(nameof(GetById), new { eventId = result.Value!.Id }, result.Value);
     }
 
@@ -34,7 +35,7 @@ public sealed class CalendarEventsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await calendarEventService.GetByWorkspaceAsync(workspaceId, userId, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("access", StringComparison.OrdinalIgnoreCase) ? Forbid() : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.Forbidden) ? Forbid() : BadRequest(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -44,7 +45,7 @@ public sealed class CalendarEventsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await calendarEventService.GetByDateRangeAsync(workspaceId, userId, fromUtc, toUtc, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("access", StringComparison.OrdinalIgnoreCase) ? Forbid() : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.Forbidden) ? Forbid() : BadRequest(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -53,7 +54,7 @@ public sealed class CalendarEventsController(
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await calendarEventService.GetByIdAsync(eventId, userId, ct);
-        if (!result.IsSuccess) return NotFound(new { error = result.Error });
+        if (!result.IsSuccess) return NotFound(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -64,7 +65,7 @@ public sealed class CalendarEventsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await calendarEventService.UpdateAsync(eventId, userId, dto, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound) ? NotFound(new { error = result.ErrorMessage }) : BadRequest(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 
@@ -74,7 +75,7 @@ public sealed class CalendarEventsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await calendarEventService.DeleteAsync(eventId, userId, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase) ? NotFound(new { error = result.Error }) : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.NotFound) ? NotFound(new { error = result.ErrorMessage }) : BadRequest(new { error = result.ErrorMessage });
         return NoContent();
     }
 }

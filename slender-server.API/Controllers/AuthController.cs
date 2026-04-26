@@ -3,6 +3,7 @@ using Asp.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using slender_server.Application.DTOs.Auth;
 using slender_server.Application.Interfaces.Services;
 
@@ -19,6 +20,7 @@ public sealed class AuthController(
     : ControllerBase
 {
     [AllowAnonymous]
+    [EnableRateLimiting("auth-rate-limiting")]
     [HttpPost("register")]
     public async Task<ActionResult<AccessTokenDto>> Register(
         RegisterUserDto registerUserDto,
@@ -39,7 +41,7 @@ public sealed class AuthController(
             }
 
             return Problem(
-                detail: result.Error,
+                detail: result.ErrorMessage,
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
@@ -47,6 +49,7 @@ public sealed class AuthController(
     }
     
     [AllowAnonymous]
+    [EnableRateLimiting("auth-rate-limiting")]
     [HttpPost("login")]
     public async Task<ActionResult<AccessTokenDto>> Login(
         LoginUserDto loginUserDto,
@@ -58,7 +61,7 @@ public sealed class AuthController(
 
         return result.IsSuccess
             ? Ok(result.Value)
-            : Unauthorized(new { error = result.Error });
+            : Unauthorized(new { error = result.ErrorMessage });
     }
     
     [AllowAnonymous]
@@ -73,7 +76,7 @@ public sealed class AuthController(
 
         return result.IsSuccess
             ? Ok(result.Value)
-            : Unauthorized(new { error = result.Error });
+            : Unauthorized(new { error = result.ErrorMessage });
     }
     
     [Authorize]
@@ -87,7 +90,7 @@ public sealed class AuthController(
 
         var result = await authService.LogoutAsync(userId, refreshTokenDto.RefreshToken, cancellationToken);
 
-        return result.IsSuccess ? Ok() : BadRequest(new { error = result.Error });
+        return result.IsSuccess ? Ok() : BadRequest(new { error = result.ErrorMessage });
     }
 
     [AllowAnonymous]
@@ -100,7 +103,7 @@ public sealed class AuthController(
 
         return result.IsSuccess
             ? Ok(result.Value)
-            : Unauthorized(new { error = result.Error });
+            : Unauthorized(new { error = result.ErrorMessage });
     }
 
     public record GoogleLoginRequest(string GoogleToken);

@@ -44,7 +44,7 @@ public sealed class AuthService(
             if (!createUserResult.Succeeded)
             {
                 var errors = createUserResult.Errors.ToDictionary(e => e.Code, e => e.Description);
-                return Result<AccessTokenDto>.Failure(errors);
+                return Result<AccessTokenDto>.Failure(errors,ErrorType.Validation);
             }
 
             // Add role
@@ -52,7 +52,7 @@ public sealed class AuthService(
             if (!addToRoleResult.Succeeded)
             {
                 var errors = addToRoleResult.Errors.ToDictionary(e => e.Code, e => e.Description);
-                return Result<AccessTokenDto>.Failure(errors);
+                return Result<AccessTokenDto>.Failure(errors,ErrorType.Validation);
             }
 
             // Create Application User
@@ -62,7 +62,7 @@ public sealed class AuthService(
             await applicationDbContext.SaveChangesAsync(cancellationToken);
 
             // Generate tokens
-            var tokenRequest = new TokenRequest(identityUser.Id, identityUser.Email!, ["Member"]);
+            var tokenRequest = new TokenRequest(identityUser.Id, identityUser.Email, ["Member"]);
             var accessTokens = tokenProvider.Create(tokenRequest);
 
             // Save refresh token
@@ -77,7 +77,7 @@ public sealed class AuthService(
         catch (Exception ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<AccessTokenDto>.Failure($"Registration failed: {ex.Message}");
+            return Result<AccessTokenDto>.Failure($"Registration failed: {ex.Message}",ErrorType.Validation);
         }
     }
 
@@ -88,13 +88,13 @@ public sealed class AuthService(
         var identityUser = await userManager.FindByEmailAsync(loginUserDto.Email);
         if (identityUser is null)
         {
-            return Result<AccessTokenDto>.Failure("Invalid credentials");
+            return Result<AccessTokenDto>.Failure("Invalid credentials",ErrorType.Unauthorized);
         }
 
         var isPasswordValid = await userManager.CheckPasswordAsync(identityUser, loginUserDto.Password);
         if (!isPasswordValid)
         {
-            return Result<AccessTokenDto>.Failure("Invalid credentials");
+            return Result<AccessTokenDto>.Failure("Invalid credentials",ErrorType.Unauthorized);
         }
 
         var roles = await userManager.GetRolesAsync(identityUser);
@@ -117,12 +117,12 @@ public sealed class AuthService(
 
         if (refreshToken is null)
         {
-            return Result<AccessTokenDto>.Failure("Invalid refresh token");
+            return Result<AccessTokenDto>.Failure("Invalid refresh token",ErrorType.Unauthorized);
         }
 
         if (refreshToken.ExpiresAtUtc < DateTime.UtcNow)
         {
-            return Result<AccessTokenDto>.Failure("Refresh token expired");
+            return Result<AccessTokenDto>.Failure("Refresh token expired",ErrorType.Unauthorized);
         }
 
         var user = await identityDbContext.Users
@@ -130,7 +130,7 @@ public sealed class AuthService(
 
         if (user is null)
         {
-            return Result<AccessTokenDto>.Failure("User not found");
+            return Result<AccessTokenDto>.Failure("User not found",ErrorType.NotFound);
         }
 
         var roles = await userManager.GetRolesAsync(user);
@@ -196,14 +196,14 @@ public sealed class AuthService(
                     if (!createResult.Succeeded)
                     {
                         var errors = createResult.Errors.ToDictionary(e => e.Code, e => e.Description);
-                        return Result<AccessTokenDto>.Failure(errors);
+                        return Result<AccessTokenDto>.Failure(errors,ErrorType.Unauthorized);
                     }
 
                     var addToRoleResult = await userManager.AddToRoleAsync(identityUser, "Member");
                     if (!addToRoleResult.Succeeded)
                     {
                         var errors = addToRoleResult.Errors.ToDictionary(e => e.Code, e => e.Description);
-                        return Result<AccessTokenDto>.Failure(errors);
+                        return Result<AccessTokenDto>.Failure(errors,ErrorType.Validation);
                     }
 
                     var applicationUser = new User
@@ -244,11 +244,11 @@ public sealed class AuthService(
         }
         catch (InvalidJwtException)
         {
-            return Result<AccessTokenDto>.Failure("Invalid Google token");
+            return Result<AccessTokenDto>.Failure("Invalid Google token",ErrorType.Unauthorized);
         }
         catch (Exception ex)
         {
-            return Result<AccessTokenDto>.Failure($"Google login failed: {ex.Message}");
+            return Result<AccessTokenDto>.Failure($"Google login failed: {ex.Message}",ErrorType.Unauthorized);
         }
     }
 

@@ -43,11 +43,11 @@ public sealed class TaskService(
     {
         var task = await taskRepository.GetByIdWithDetailsAsync(taskId, ct);
         if (task is null)
-            return Result<TaskDto>.Failure("Task not found");
+            return Result<TaskDto>.Failure("Task not found",ErrorType.NotFound);
 
         var isMember = await workspaceMemberRepository.IsMemberAsync(task.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result<TaskDto>.Failure("You do not have access to this task");
+            return Result<TaskDto>.Failure("You do not have access to this task",ErrorType.Forbidden);
 
         return Result<TaskDto>.Success(task.ToDto());
     }
@@ -56,7 +56,7 @@ public sealed class TaskService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(dto.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result<TaskDto>.Failure("You do not have permission to create tasks in this workspace");
+            return Result<TaskDto>.Failure("You do not have permission to create tasks in this workspace",ErrorType.Forbidden);
 
         var entity = (dto with { CreatedById = userId }).ToEntity();
         await taskRepository.AddAsync(entity, ct);
@@ -69,11 +69,11 @@ public sealed class TaskService(
     {
         var task = await taskRepository.GetByIdAsync(taskId, ct);
         if (task is null)
-            return Result<TaskDto>.Failure("Task not found");
+            return Result<TaskDto>.Failure("Task not found",ErrorType.NotFound);
 
         var isMember = await workspaceMemberRepository.IsMemberAsync(task.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result<TaskDto>.Failure("You do not have permission to update this task");
+            return Result<TaskDto>.Failure("You do not have permission to update this task",ErrorType.Forbidden);
 
         dto.ApplyTo(task);
         await taskRepository.UpdateAsync(task, ct);
@@ -86,11 +86,11 @@ public sealed class TaskService(
     {
         var task = await taskRepository.GetByIdAsync(taskId, ct);
         if (task is null)
-            return Result.Failure("Task not found");
+            return Result.Failure("Task not found",ErrorType.NotFound);
 
         var isMember = await workspaceMemberRepository.IsMemberAsync(task.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result.Failure("You do not have permission to delete this task");
+            return Result.Failure("You do not have permission to delete this task",ErrorType.Forbidden);
 
         task.DeletedAtUtc = DateTime.UtcNow;
         await taskRepository.UpdateAsync(task, ct);

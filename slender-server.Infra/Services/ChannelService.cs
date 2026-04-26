@@ -20,7 +20,7 @@ public sealed class ChannelService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(dto.WorkspaceId, userId, ct);
         if (!isMember)
-            return Result<ChannelDto>.Failure("You do not have access to this workspace");
+            return Result<ChannelDto>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
         var entity = (dto with { CreatedById = userId }).ToEntity();
         await channelRepository.AddAsync(entity, ct);
@@ -32,7 +32,7 @@ public sealed class ChannelService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, ct);
         if (!isMember)
-            return Result<ChannelDto>.Failure("You do not have access to this workspace");
+            return Result<ChannelDto>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
         var hash = Channel.GetParticipantHash(userId, otherUserId);
         var channel = await channelRepository.GetByParticipantHashAsync(workspaceId, hash, ct);
@@ -55,7 +55,7 @@ public sealed class ChannelService(
     {
         var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, ct);
         if (!isMember)
-            return Result<PagedResponse<ChannelDto>>.Failure("You do not have access to this workspace");
+            return Result<PagedResponse<ChannelDto>>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
         var paged = await channelRepository.GetPagedAsync(
             pagination.PageNumber,
@@ -71,12 +71,11 @@ public sealed class ChannelService(
     {
         var channel = await channelRepository.GetByIdWithMembersAsync(channelId, ct);
         if (channel is null)
-            return Result<ChannelDto>.Failure("Channel not found");
+            return Result<ChannelDto>.Failure("Channel not found",ErrorType.NotFound);
 
         var isMember = await channelMemberRepository.IsMemberAsync(channelId, userId, ct);
         if (!isMember)
-            return Result<ChannelDto>.Failure("You do not have access to this channel");
-
+            return Result<ChannelDto>.Failure("You do not have access to this channel",ErrorType.Forbidden);
         return Result<ChannelDto>.Success(channel.ToDto());
     }
 
@@ -84,12 +83,11 @@ public sealed class ChannelService(
     {
         var channel = await channelRepository.GetByIdAsync(channelId, ct);
         if (channel is null)
-            return Result<ChannelDto>.Failure("Channel not found");
+            return Result<ChannelDto>.Failure("Channel not found",ErrorType.NotFound);
 
         var isMember = await channelMemberRepository.IsMemberAsync(channelId, userId, ct);
         if (!isMember)
-            return Result<ChannelDto>.Failure("You do not have access to this channel");
-
+            return Result<ChannelDto>.Failure("You do not have access to this channel",ErrorType.Forbidden);
         dto.ApplyTo(channel);
         await channelRepository.UpdateAsync(channel, ct);
         await unitOfWork.SaveChangesAsync(ct);
@@ -100,13 +98,13 @@ public sealed class ChannelService(
     {
         var channel = await channelRepository.GetByIdAsync(channelId, ct);
         if (channel is null)
-            return Result.Failure("Channel not found");
+            return Result.Failure("Channel not found",ErrorType.NotFound);
 
         var isMember = await channelMemberRepository.IsMemberAsync(channelId, userId, ct);
         if (!isMember)
-            return Result.Failure("You do not have access to this channel");
+            return Result.Failure("You do not have access to this channel",ErrorType.Forbidden);
         if (channel.CreatedById != userId)
-            return Result.Failure("Only the channel creator can delete it");
+            return Result.Failure("Only the channel creator can delete it",ErrorType.Forbidden);
 
         await channelRepository.DeleteAsync(channel, ct);
         await unitOfWork.SaveChangesAsync(ct);
@@ -117,8 +115,7 @@ public sealed class ChannelService(
     {
         var isMember = await channelMemberRepository.IsMemberAsync(channelId, userId, ct);
         if (!isMember)
-            return Result<IReadOnlyList<ChannelMemberDto>>.Failure("You do not have access to this channel");
-
+            return Result<IReadOnlyList<ChannelMemberDto>>.Failure("You do not have access to this channel",ErrorType.Forbidden);
         var members = await channelMemberRepository.GetByChannelIdAsync(channelId, ct);
         return Result<IReadOnlyList<ChannelMemberDto>>.Success(members.Select(m => m.ToDto()).ToArray());
     }
@@ -127,11 +124,11 @@ public sealed class ChannelService(
     {
         var channel = await channelRepository.GetByIdAsync(channelId, ct);
         if (channel is null)
-            return Result<ChannelMemberDto>.Failure("Channel not found");
+            return Result<ChannelMemberDto>.Failure("Channel not found",ErrorType.NotFound);
 
         var isWorkspaceMember = await workspaceMemberRepository.IsMemberAsync(channel.WorkspaceId, userId, ct);
         if (!isWorkspaceMember)
-            return Result<ChannelMemberDto>.Failure("You must be a workspace member to join this channel");
+            return Result<ChannelMemberDto>.Failure("You must be a workspace member to join this channel",ErrorType.Forbidden);
 
         var existing = await channelMemberRepository.GetByChannelAndUserAsync(channelId, userId, ct);
         if (existing is not null)
@@ -147,7 +144,7 @@ public sealed class ChannelService(
     {
         var member = await channelMemberRepository.GetByChannelAndUserAsync(channelId, userId, ct);
         if (member is null)
-            return Result.Failure("You are not a member of this channel");
+            return Result.Failure("You are not a member of this channel",ErrorType.NotFound);
 
         await channelMemberRepository.RemoveAsync(member, ct);
         await unitOfWork.SaveChangesAsync(ct);

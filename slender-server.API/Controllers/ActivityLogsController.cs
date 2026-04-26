@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using slender_server.Application.DTOs.ActivityLog;
 using slender_server.Application.Interfaces.Services;
+using slender_server.Application.Models.Common;
 
 namespace slender_server.API.Controllers;
 
@@ -22,7 +23,7 @@ public sealed class ActivityLogsController(
     {
         await createValidator.ValidateAndThrowAsync(dto, ct);
         var result = await activityLogService.CreateAsync(dto with { WorkspaceId = workspaceId, ActorId = await userContext.GetRequiredUserIdAsync(ct) }, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage });
         return CreatedAtAction(nameof(GetByWorkspace), new { workspaceId }, result.Value);
     }
 
@@ -32,7 +33,7 @@ public sealed class ActivityLogsController(
         var userId = await userContext.GetRequiredUserIdAsync(ct);
         var result = await activityLogService.GetWorkspaceLogsAsync(workspaceId, userId, ct);
         if (!result.IsSuccess)
-            return result.Error!.Contains("access", StringComparison.OrdinalIgnoreCase) ? Forbid() : BadRequest(new { error = result.Error });
+            return result.ErrorType.Equals(ErrorType.Forbidden) ? Forbid() : BadRequest(new { error = result.ErrorMessage });
         return Ok(result.Value);
     }
 }
