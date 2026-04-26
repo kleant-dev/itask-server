@@ -22,6 +22,7 @@ public sealed class TaskService(
         PaginationParams paginationParams,
         string? sort = null,
         string? status = null,
+        string? projectId = null,
         CancellationToken ct = default)
     {
         if (!sortingService.ValidateSort<TaskDto, Task>(sort))
@@ -32,7 +33,7 @@ public sealed class TaskService(
         var pagedResult = await taskRepository.GetPagedAsync(
             paginationParams.PageNumber,
             paginationParams.PageSize,
-            t => t.WorkspaceId == workspaceId && (status == null || t.Status.ToString() == status),
+            t => t.WorkspaceId == workspaceId && (status == null || t.Status.ToString() == status) && (projectId == null || t.ProjectId == projectId),
             null,
             ct);
 

@@ -27,6 +27,7 @@ public sealed class TasksController(
         [FromQuery] PaginationParams pagination,
         [FromQuery] string? sort,
         [FromQuery] string? status,
+        [FromQuery] string? projectId,
         CancellationToken cancellationToken)
     {
         var result = await taskService.GetWorkspaceTasksAsync(
@@ -34,6 +35,7 @@ public sealed class TasksController(
             pagination,
             sort,
             status,
+            projectId,
             cancellationToken);
 
         return Ok(result);

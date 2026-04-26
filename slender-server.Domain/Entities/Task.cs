@@ -39,9 +39,9 @@ public sealed class Task
 
 public enum TaskStatus
 {
-    ToDo,           // maps to "To Do" in UI
-    InProgress,     // maps to "On Progress" in UI
-    Review,
+    Todo,           
+    InProgress,    
+    InReview,
     Done,
     Archived
     // NOTE: "Overdue" is COMPUTED, not stored - see below

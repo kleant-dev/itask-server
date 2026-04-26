@@ -48,8 +48,14 @@ public static class DependencyInjection
             {
                 options.ReturnHttpNotAcceptable = true;
             })
-            .AddNewtonsoftJson(options => options.SerializerSettings.ContractResolver =
-                new CamelCasePropertyNamesContractResolver())
+            .AddNewtonsoftJson(options =>
+            {
+                options.SerializerSettings.ContractResolver =
+                    new CamelCasePropertyNamesContractResolver();
+                
+                options.SerializerSettings.Converters.Add(
+                    new Newtonsoft.Json.Converters.StringEnumConverter());
+            })
             .AddXmlSerializerFormatters();
         
         builder.Services.Configure<MvcOptions>(options =>

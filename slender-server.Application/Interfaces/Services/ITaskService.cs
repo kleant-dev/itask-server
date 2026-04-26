@@ -11,6 +11,7 @@ public interface ITaskService
         PaginationParams paginationParams,
         string? sort = null,
         string? status = null,
+        string? projectId = null,
         CancellationToken ct = default);
 
     Task<Result<TaskDto>> GetByIdAsync(
