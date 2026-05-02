@@ -13,12 +13,12 @@ public sealed class TaskService(
     IWorkspaceMemberRepository workspaceMemberRepository,
     IUnitOfWork unitOfWork,
     ISortingService sortingService,
-    IPaginationService paginationService,
-    IUserContext userContext)
+    IPaginationService paginationService)
     : ITaskService
 {
-    public async Task<PagedResponse<TaskDto>> GetWorkspaceTasksAsync(
+    public async Task<Result<PagedResponse<TaskDto>>> GetWorkspaceTasksAsync(
         string workspaceId,
+        string userId,
         PaginationParams paginationParams,
         string? sort = null,
         string? status = null,
@@ -26,18 +26,25 @@ public sealed class TaskService(
         CancellationToken ct = default)
     {
         if (!sortingService.ValidateSort<TaskDto, Task>(sort))
-            throw new ArgumentException("Invalid sort fields", nameof(sort));
+            return Result<PagedResponse<TaskDto>>.Failure(
+                "One or more sort fields are invalid.", ErrorType.Validation);
 
-        _ = await userContext.GetRequiredUserIdAsync(ct);
+        var isMember = await workspaceMemberRepository.IsMemberAsync(workspaceId, userId, ct);
+        if (!isMember)
+            return Result<PagedResponse<TaskDto>>.Failure(
+                "You do not have access to this workspace.", ErrorType.Forbidden);
 
         var pagedResult = await taskRepository.GetPagedAsync(
             paginationParams.PageNumber,
             paginationParams.PageSize,
-            t => t.WorkspaceId == workspaceId && (status == null || t.Status.ToString() == status) && (projectId == null || t.ProjectId == projectId),
+            t => t.WorkspaceId == workspaceId
+                 && (status == null || t.Status.ToString() == status)
+                 && (projectId == null || t.ProjectId == projectId),
             null,
             ct);
 
-        return paginationService.MapToPagedResponse(pagedResult, t => t.ToDto());
+        var response = paginationService.MapToPagedResponse(pagedResult, t => t.ToDto());
+        return Result<PagedResponse<TaskDto>>.Success(response);
     }
 
     public async Task<Result<TaskDto>> GetByIdAsync(string taskId, string userId, CancellationToken ct = default)

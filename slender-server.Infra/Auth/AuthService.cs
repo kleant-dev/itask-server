@@ -1,7 +1,9 @@
 using Google.Apis.Auth;
+using Google.Apis.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using slender_server.Application.Common.Settings;
 using slender_server.Application.DTOs.Auth;
@@ -17,7 +19,8 @@ public sealed class AuthService(
     ApplicationIdentityDbContext identityDbContext,
     ApplicationDbContext applicationDbContext,
     ITokenProvider tokenProvider,
-    IOptions<JwtAuthOptions> options)
+    IOptions<JwtAuthOptions> options,
+    ILogger<AuthService> logger)
     : IAuthService
 {
     private readonly JwtAuthOptions _jwtAuthOptions = options.Value;
@@ -77,6 +80,7 @@ public sealed class AuthService(
         catch (Exception ex)
         {
             await transaction.RollbackAsync(cancellationToken);
+            logger.LogError(ex, "Registration failed for {Email}", registerUserDto.Email);
             return Result<AccessTokenDto>.Failure($"Registration failed: {ex.Message}",ErrorType.Validation);
         }
     }
@@ -101,8 +105,13 @@ public sealed class AuthService(
         var tokenRequest = new TokenRequest(identityUser.Id, identityUser.Email!, roles);
         var accessTokens = tokenProvider.Create(tokenRequest);
 
-        var refreshToken = CreateRefreshToken(identityUser.Id, accessTokens.RefreshToken);
-        identityDbContext.RefreshTokens.Add(refreshToken);
+        var existingTokens = identityDbContext.RefreshTokens
+            .Where(rt => rt.UserId == identityUser.Id);
+        identityDbContext.RefreshTokens.RemoveRange(existingTokens);
+
+        identityDbContext.RefreshTokens.Add(
+            CreateRefreshToken(identityUser.Id, accessTokens.RefreshToken));
+
         await identityDbContext.SaveChangesAsync(cancellationToken);
 
         return Result<AccessTokenDto>.Success(accessTokens);
@@ -112,34 +121,34 @@ public sealed class AuthService(
         RefreshTokenDto refreshTokenDto,
         CancellationToken cancellationToken = default)
     {
+        var incomingHash = TokenHasher.Hash(refreshTokenDto.RefreshToken);
+
         var refreshToken = await identityDbContext.RefreshTokens
-            .FirstOrDefaultAsync(rt => rt.Token == refreshTokenDto.RefreshToken, cancellationToken);
+            .FirstOrDefaultAsync(rt => rt.Token == incomingHash, cancellationToken);
 
         if (refreshToken is null)
-        {
-            return Result<AccessTokenDto>.Failure("Invalid refresh token",ErrorType.Unauthorized);
-        }
+            return Result<AccessTokenDto>.Failure("Invalid refresh token", ErrorType.Unauthorized);
 
         if (refreshToken.ExpiresAtUtc < DateTime.UtcNow)
         {
-            return Result<AccessTokenDto>.Failure("Refresh token expired",ErrorType.Unauthorized);
+            identityDbContext.RefreshTokens.Remove(refreshToken);
+            await identityDbContext.SaveChangesAsync(cancellationToken);
+            return Result<AccessTokenDto>.Failure("Refresh token expired", ErrorType.Unauthorized);
         }
 
         var user = await identityDbContext.Users
             .FirstOrDefaultAsync(u => u.Id == refreshToken.UserId, cancellationToken);
 
         if (user is null)
-        {
-            return Result<AccessTokenDto>.Failure("User not found",ErrorType.NotFound);
-        }
+            return Result<AccessTokenDto>.Failure("User not found", ErrorType.NotFound);
 
-        var roles = await userManager.GetRolesAsync(user);
+        var roles        = await userManager.GetRolesAsync(user);
         var tokenRequest = new TokenRequest(user.Id, user.Email!, roles);
         var accessTokens = tokenProvider.Create(tokenRequest);
 
-        // Update refresh token
-        refreshToken.Token = accessTokens.RefreshToken;
+        refreshToken.Token        = TokenHasher.Hash(accessTokens.RefreshToken);
         refreshToken.ExpiresAtUtc = DateTime.UtcNow.AddDays(_jwtAuthOptions.RefreshTokenExpirationDays);
+
         await identityDbContext.SaveChangesAsync(cancellationToken);
 
         return Result<AccessTokenDto>.Success(accessTokens);
@@ -150,8 +159,9 @@ public sealed class AuthService(
         string refreshToken,
         CancellationToken cancellationToken = default)
     {
+        var hash = TokenHasher.Hash(refreshToken);
         var token = await identityDbContext.RefreshTokens
-            .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.UserId == userId, cancellationToken);
+                    .FirstOrDefaultAsync(rt => rt.Token == hash && rt.UserId == userId, cancellationToken);
 
         if (token is not null)
         {
@@ -220,9 +230,10 @@ public sealed class AuthService(
                     await applicationDbContext.SaveChangesAsync(cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
-                catch
+                catch(Exception ex)
                 {
                     await transaction.RollbackAsync(cancellationToken);
+                    logger.LogError(ex, "Google registration transaction failed for {Email}", email);
                     throw;
                 }
             }
@@ -231,13 +242,17 @@ public sealed class AuthService(
                 identityUser.EmailConfirmed = true;
                 await userManager.UpdateAsync(identityUser);
             }
+            
+            var existingTokens = identityDbContext.RefreshTokens
+                .Where(rt => rt.UserId == identityUser.Id);
+            identityDbContext.RefreshTokens.RemoveRange(existingTokens);
 
             var roles = await userManager.GetRolesAsync(identityUser);
             var tokenRequest = new TokenRequest(identityUser.Id, email, roles);
             var accessTokenDto = tokenProvider.Create(tokenRequest);
 
-            var refreshToken = CreateRefreshToken(identityUser.Id, accessTokenDto.RefreshToken);
-            identityDbContext.RefreshTokens.Add(refreshToken);
+            identityDbContext.RefreshTokens.Add(
+                CreateRefreshToken(identityUser.Id, accessTokenDto.RefreshToken));
             await identityDbContext.SaveChangesAsync(cancellationToken);
 
             return Result<AccessTokenDto>.Success(accessTokenDto);
@@ -248,6 +263,7 @@ public sealed class AuthService(
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Google login failed");
             return Result<AccessTokenDto>.Failure($"Google login failed: {ex.Message}",ErrorType.Unauthorized);
         }
     }

@@ -5,7 +5,6 @@ namespace slender_server.Application.DTOs.ActivityLog;
 public sealed record CreateActivityLogDto
 {
     public required string WorkspaceId { get; init; }
-    public required string ActorId { get; init; }
     public required string Action { get; init; }
     public required string EntityType { get; init; }
     public required string EntityId { get; init; }
@@ -15,13 +14,13 @@ public sealed record CreateActivityLogDto
 
 public static class CreateActivityLogDtoExtensions
 {
-    public static Domain.Entities.ActivityLog ToEntity(this CreateActivityLogDto dto)
+    public static Domain.Entities.ActivityLog ToEntity(this CreateActivityLogDto dto,string actorId)
     {
         return new Domain.Entities.ActivityLog()
         {
             Id = Domain.Entities.ActivityLog.NewId(),
             WorkspaceId = dto.WorkspaceId,
-            ActorId = dto.ActorId,
+            ActorId = actorId,
             Action = dto.Action,
             EntityType = dto.EntityType,
             EntityId = dto.EntityId,

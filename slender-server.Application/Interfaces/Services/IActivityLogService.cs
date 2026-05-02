@@ -6,6 +6,7 @@ namespace slender_server.Application.Interfaces.Services;
 public interface IActivityLogService
 {
     Task<Result<ActivityLogDto>> CreateAsync(
+        string actorId,
         CreateActivityLogDto dto,
         CancellationToken ct = default);
 

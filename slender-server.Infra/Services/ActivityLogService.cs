@@ -13,14 +13,15 @@ public sealed class ActivityLogService(
     : IActivityLogService
 {
     public async Task<Result<ActivityLogDto>> CreateAsync(
+        string actorId,
         CreateActivityLogDto dto,
         CancellationToken ct = default)
     {
-        var isMember = await workspaceMemberRepository.IsMemberAsync(dto.WorkspaceId, dto.ActorId, ct);
+        var isMember = await workspaceMemberRepository.IsMemberAsync(dto.WorkspaceId, actorId, ct);
         if (!isMember)
             return Result<ActivityLogDto>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
 
-        var entity = dto.ToEntity();
+        var entity = dto.ToEntity(actorId);
         await activityLogRepository.AddAsync(entity, ct);
         await unitOfWork.SaveChangesAsync(ct);
 

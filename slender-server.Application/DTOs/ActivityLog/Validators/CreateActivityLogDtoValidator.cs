@@ -10,10 +10,6 @@ public sealed class CreateActivityLogDtoValidator : AbstractValidator<CreateActi
             .NotEmpty()
             .MaximumLength(50);
 
-        RuleFor(x => x.ActorId)
-            .NotEmpty()
-            .MaximumLength(50);
-
         RuleFor(x => x.Action)
             .NotEmpty()
             .MaximumLength(100);

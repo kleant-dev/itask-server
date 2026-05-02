@@ -30,15 +30,20 @@ public sealed class TasksController(
         [FromQuery] string? projectId,
         CancellationToken cancellationToken)
     {
+        var userId = await userContext.GetRequiredUserIdAsync(cancellationToken);
         var result = await taskService.GetWorkspaceTasksAsync(
-            workspaceId,
-            pagination,
-            sort,
-            status,
-            projectId,
-            cancellationToken);
+            workspaceId, userId, pagination, sort, status, projectId, cancellationToken);
 
-        return Ok(result);
+        if (!result.IsSuccess)
+        {
+            return result.ErrorType switch
+            {
+                ErrorType.Forbidden   => Forbid(),
+                _                     => BadRequest(new { error = result.ErrorMessage })
+            };
+        }
+
+        return Ok(result.Value);
     }
 
     // GET api/v1/tasks/{taskId}

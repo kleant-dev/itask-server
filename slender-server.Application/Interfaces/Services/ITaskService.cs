@@ -6,8 +6,9 @@ namespace slender_server.Application.Interfaces.Services;
 
 public interface ITaskService
 {
-    Task<PagedResponse<TaskDto>> GetWorkspaceTasksAsync(
+    Task<Result<PagedResponse<TaskDto>>> GetWorkspaceTasksAsync(
         string workspaceId,
+        string userId,
         PaginationParams paginationParams,
         string? sort = null,
         string? status = null,

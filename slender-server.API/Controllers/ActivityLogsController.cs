@@ -22,8 +22,11 @@ public sealed class ActivityLogsController(
     public async Task<ActionResult<ActivityLogDto>> Create(string workspaceId, [FromBody] CreateActivityLogDto dto, CancellationToken ct)
     {
         await createValidator.ValidateAndThrowAsync(dto, ct);
-        var result = await activityLogService.CreateAsync(dto with { WorkspaceId = workspaceId, ActorId = await userContext.GetRequiredUserIdAsync(ct) }, ct);
-        if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage });
+        var actorId = await userContext.GetRequiredUserIdAsync(ct);
+        var result = await activityLogService.CreateAsync(actorId,dto with { WorkspaceId = workspaceId }, ct);
+        if (!result.IsSuccess)
+            return BadRequest(new { error = result.ErrorMessage });
+
         return CreatedAtAction(nameof(GetByWorkspace), new { workspaceId }, result.Value);
     }
 
