@@ -58,6 +58,9 @@ public static class DependencyInjection
             })
             .AddXmlSerializerFormatters();
         
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
+        
         builder.Services.Configure<MvcOptions>(options =>
         {
             NewtonsoftJsonOutputFormatter formatter = options.OutputFormatters

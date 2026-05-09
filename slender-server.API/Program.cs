@@ -27,6 +27,8 @@ app.MapDefaultEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
     using (var scope = app.Services.CreateScope())
     {
         var services = scope.ServiceProvider;
