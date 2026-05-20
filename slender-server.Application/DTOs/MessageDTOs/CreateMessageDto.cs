@@ -22,7 +22,7 @@ public static class CreateMessageDtoExtensions
             ReplyToId = dto.ReplyToId,
             Body = dto.Body,
             CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
+            UpdatedAtUtc = DateTime.UtcNow,
         };
     }
 }

@@ -14,21 +14,9 @@ namespace slender_server.API.Controllers;
 [Authorize]
 public sealed class ActivityLogsController(
     IActivityLogService activityLogService,
-    IUserContext userContext,
-    IValidator<CreateActivityLogDto> createValidator)
+    IUserContext userContext)
     : ControllerBase
 {
-    [HttpPost]
-    public async Task<ActionResult<ActivityLogDto>> Create(string workspaceId, [FromBody] CreateActivityLogDto dto, CancellationToken ct)
-    {
-        await createValidator.ValidateAndThrowAsync(dto, ct);
-        var actorId = await userContext.GetRequiredUserIdAsync(ct);
-        var result = await activityLogService.CreateAsync(actorId,dto with { WorkspaceId = workspaceId }, ct);
-        if (!result.IsSuccess)
-            return BadRequest(new { error = result.ErrorMessage });
-
-        return CreatedAtAction(nameof(GetByWorkspace), new { workspaceId }, result.Value);
-    }
 
     [HttpGet(Name = nameof(GetByWorkspace))]
     public async Task<IActionResult> GetByWorkspace(string workspaceId, CancellationToken ct)

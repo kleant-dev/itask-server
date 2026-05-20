@@ -17,7 +17,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             ProblemDetails = new ProblemDetails
             {
                 Title = "Internal Server Error",
-                Detail = $"An error occurred while processing your request. Please try again.{exception.Message}"
+                Detail = $"An error occurred while processing your request. Please try again."
             }
         });
     }

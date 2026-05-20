@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using slender_server.Application.DTOs.NotificationDTOs;
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Common;
+using slender_server.Application.Models.Pagination;
+using slender_server.Application.Models.Sorting;
 
 namespace slender_server.API.Controllers;
 
@@ -15,10 +17,12 @@ public sealed class NotificationsController(INotificationService notificationSer
     : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetMy(CancellationToken ct)
+    public async Task<IActionResult> GetNotifications(
+        [FromQuery] PaginationParams pagination,
+        [FromQuery] SortParams sort,CancellationToken ct)
     {
         var userId = await userContext.GetRequiredUserIdAsync(ct);
-        var result = await notificationService.GetUserNotificationsAsync(userId, ct);
+        var result = await notificationService.GetUserNotificationsAsync(userId,pagination,sort, ct);
         if (!result.IsSuccess) return BadRequest(new { error = result.ErrorMessage});
         return Ok(result.Value);
     }

@@ -36,7 +36,6 @@ using slender_server.Application.Services;
 using slender_server.Application.SortMappings;
 using slender_server.Domain.Interfaces;
 using slender_server.Infra.Repositories;
-using slender_server.Infra.Services;
 
 namespace slender_server.API;
 
@@ -176,7 +175,16 @@ public static class DependencyInjection
         builder.Services.AddScoped<IPaginationService,PaginationService>();
         builder.Services.AddScoped<IDataShapingService,DataShapingService>();
         builder.Services.AddScoped<ISortingService, SortingService>();
-        
+        builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
+        builder.Services.AddScoped<IUserService, UserService>();
+        builder.Services.AddScoped<ITaskService, TaskService>();
+        builder.Services.AddScoped<IProjectService, ProjectService>();
+        builder.Services.AddScoped<ILabelService, LabelService>();
+        builder.Services.AddScoped<INotificationService, NotificationService>();
+        builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
+        builder.Services.AddScoped<IChannelService, ChannelService>();
+        builder.Services.AddScoped<ICalendarEventService, CalendarEventService>();
+        builder.Services.AddScoped<IMessageService, MessageService>();
         builder.Services.AddSingleton<SortMappingDefinition<TaskDto, Domain.Entities.Task>, TaskSortMapping>();
         builder.Services.AddSingleton<SortMappingDefinition<ProjectDto, Domain.Entities.Project>, ProjectSortMapping>();
         builder.Services.AddSingleton<SortMappingDefinition<WorkspaceDto, Domain.Entities.Workspace>, WorkspaceSortMapping>();
@@ -244,8 +252,6 @@ public static class DependencyInjection
             });
 
         builder.Services.AddAuthorization();
-        builder.Services.AddScoped<IAuthService, AuthService>();
-
         return builder;
     }
     
@@ -255,15 +261,6 @@ public static class DependencyInjection
         builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         builder.Services.AddScoped<IUserContext, UserContext>();
         builder.Services.AddScoped<IAuthService, AuthService>();
-        builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
-        builder.Services.AddScoped<IUserService, UserService>();
-        builder.Services.AddScoped<ITaskService, TaskService>();
-        builder.Services.AddScoped<IProjectService, ProjectService>();
-        builder.Services.AddScoped<ILabelService, LabelService>();
-        builder.Services.AddScoped<INotificationService, NotificationService>();
-        builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
-        builder.Services.AddScoped<IChannelService, ChannelService>();
-        builder.Services.AddScoped<ICalendarEventService, CalendarEventService>();
 
         builder.Services.AddScoped<IUserRepository, UserRepository>();
         builder.Services.AddScoped<ITaskRepository, TaskRepository>();
@@ -277,7 +274,6 @@ public static class DependencyInjection
         builder.Services.AddScoped<IMessageRepository, MessageRepository>();
         builder.Services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();
         builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<ApplicationDbContext>());
-        builder.Services.AddScoped<IMessageService, MessageService>();
         builder.Services.AddMemoryCache();
         builder.Services.AddHttpContextAccessor();
 

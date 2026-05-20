@@ -27,5 +27,6 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired();
         
         builder.HasQueryFilter(u => u.DeletedAtUtc == null);
+        
     }
 }

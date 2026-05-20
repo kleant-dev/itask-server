@@ -4,7 +4,7 @@ using slender_server.Application.Models.Common;
 using slender_server.Domain.Entities;
 using slender_server.Domain.Interfaces;
 
-namespace slender_server.Infra.Services;
+namespace slender_server.Application.Services;
 
 public sealed class ActivityLogService(
     IRepository<ActivityLog> activityLogRepository,

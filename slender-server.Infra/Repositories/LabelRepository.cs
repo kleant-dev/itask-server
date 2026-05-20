@@ -29,7 +29,7 @@ public sealed class LabelRepository(ApplicationDbContext context) : Repository<L
 
     public async Task<int> GetUsageCountAsync(string labelId, CancellationToken cancellationToken = default)
     {
-        return await context.TaskLabels
+        return await _dbContext.TaskLabels
             .CountAsync(tl => tl.LabelId == labelId, cancellationToken);
     }
 }

@@ -81,7 +81,7 @@ public sealed class AuthService(
         {
             await transaction.RollbackAsync(cancellationToken);
             logger.LogError(ex, "Registration failed for {Email}", registerUserDto.Email);
-            return Result<AccessTokenDto>.Failure($"Registration failed: {ex.Message}",ErrorType.Validation);
+            return Result<AccessTokenDto>.Failure($"Registration failed. Please try again.",ErrorType.Validation);
         }
     }
 
@@ -264,7 +264,7 @@ public sealed class AuthService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Google login failed");
-            return Result<AccessTokenDto>.Failure($"Google login failed: {ex.Message}",ErrorType.Unauthorized);
+            return Result<AccessTokenDto>.Failure($"Google login failed. Please try again.",ErrorType.Unauthorized);
         }
     }
 
@@ -274,7 +274,7 @@ public sealed class AuthService(
         {
             Id = Guid.CreateVersion7(),
             UserId = userId,
-            Token = token,
+            Token = TokenHasher.Hash(token),
             ExpiresAtUtc = DateTime.UtcNow.AddDays(_jwtAuthOptions.RefreshTokenExpirationDays)
         };
     }

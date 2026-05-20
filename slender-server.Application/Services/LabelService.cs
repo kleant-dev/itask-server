@@ -1,10 +1,9 @@
 using slender_server.Application.DTOs.LabelDTOs;
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Common;
-using slender_server.Domain.Entities;
 using slender_server.Domain.Interfaces;
 
-namespace slender_server.Infra.Services;
+namespace slender_server.Application.Services;
 
 public sealed class LabelService(
     ILabelRepository labelRepository,

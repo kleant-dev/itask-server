@@ -1,12 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using slender_server.Application.DTOs.WorkspaceDTOs;
+using slender_server.Application.Interfaces.Services;
 using slender_server.Domain.Entities;
 using slender_server.Domain.Interfaces;
+using slender_server.Domain.Models;
 using slender_server.Infra.Database;
 using Task = System.Threading.Tasks.Task;
 
 namespace slender_server.Infra.Repositories;
 
-public sealed class WorkspaceRepository(ApplicationDbContext dbContext)
+public sealed class WorkspaceRepository(ApplicationDbContext dbContext,ISortingService sortingService)
     : Repository<Workspace>(dbContext), IWorkspaceRepository
 {
     public async Task<Workspace?> GetByIdWithMembersAsync(string workspaceId, CancellationToken ct = default)
@@ -18,14 +21,30 @@ public sealed class WorkspaceRepository(ApplicationDbContext dbContext)
             .FirstOrDefaultAsync(w => w.Id == workspaceId, ct);
     }
 
-    public async Task<List<Workspace>> GetUserWorkspacesAsync(string userId, CancellationToken ct = default)
+    public async Task<PagedResult<Workspace>> GetUserWorkspacesAsync(string userId, int pageNumber, int pageSize, string? sort, CancellationToken ct = default)
     {
-        return await DbSet
-            .Where(w => w.Members.Any(m => m.UserId == userId))
-            .OrderByDescending(w => w.CreatedAtUtc)
-            .ToListAsync(ct);
-    }
+        var query = DbSet
+            .AsNoTracking()
+            .Where(w => w.Members.Any(m => m.UserId == userId));
+        sortingService.ApplySort<WorkspaceDto, Workspace>(
+            query,
+            sort,
+            defaultOrderBy: nameof(Workspace.CreatedAtUtc) + " DESC");
+        
+        var totalCount = await query.CountAsync(ct);
 
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return new PagedResult<Workspace>(
+            items,
+            totalCount,
+            pageNumber,
+            pageSize);
+    }
+    
     public async Task<bool> IsUserMemberAsync(string workspaceId, string userId, CancellationToken ct = default)
     {
         return await DbSet

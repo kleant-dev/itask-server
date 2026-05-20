@@ -20,8 +20,7 @@ public sealed class WorkspacesController(
     IWorkspaceService workspaceService,
     IUserContext userContext,
     IValidator<CreateWorkspaceDto> createValidator,
-    IValidator<UpdateWorkspaceDto> updateValidator,
-    ILogger<WorkspacesController> logger
+    IValidator<UpdateWorkspaceDto> updateValidator
 )
     : ControllerBase
 {

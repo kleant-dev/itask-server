@@ -51,13 +51,13 @@ public sealed class TaskRepository(ApplicationDbContext context)
 
     public async Task<int> GetCommentCountAsync(string taskId, CancellationToken cancellationToken = default)
     {
-        return await context.TaskComments
+        return await _dbContext.TaskComments
             .CountAsync(c => c.TaskId == taskId, cancellationToken);
     }
 
     public async Task<int> GetAttachmentCountAsync(string taskId, CancellationToken cancellationToken = default)
     {
-        return await context.TaskAttachments
+        return await _dbContext.TaskAttachments
             .CountAsync(a => a.TaskId == taskId, cancellationToken);
     }
 }

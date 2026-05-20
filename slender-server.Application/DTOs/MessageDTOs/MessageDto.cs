@@ -11,6 +11,7 @@ public sealed record MessageDto
     public required string Body { get; init; }
     public DateTime CreatedAtUtc { get; init; }
     public DateTime UpdatedAtUtc { get; init; }
+    public DateTime? ReadAtUtc { get; init; }
 }
 
 public static class MessageDtoExtensions
@@ -25,7 +26,8 @@ public static class MessageDtoExtensions
             ReplyToId = entity.ReplyToId,
             Body = entity.Body,
             CreatedAtUtc = entity.CreatedAtUtc,
-            UpdatedAtUtc = entity.UpdatedAtUtc
+            UpdatedAtUtc = entity.UpdatedAtUtc,
+            ReadAtUtc = entity.ReadAtUtc
         };
     }
 }

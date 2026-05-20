@@ -31,13 +31,5 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     {
         modelBuilder.HasDefaultSchema(Schemas.Application);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
-        
-        // Soft-delete global query filter: deleted workspaces are invisible to all queries.
-        // WorkspaceConfiguration already guards on owner.DeletedAtUtc == null;
-        // we add the self-filter here so SlugExistsAsync, GetUserWorkspacesAsync, etc.
-        // automatically exclude soft-deleted workspaces.
-        modelBuilder.Entity<Workspace>()
-            .HasQueryFilter(w => w.DeletedAtUtc == null && w.Owner.DeletedAtUtc == null);
     }
-    
 }

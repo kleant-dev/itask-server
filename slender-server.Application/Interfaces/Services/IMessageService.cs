@@ -15,6 +15,9 @@ public interface IMessageService
         string userId,
         PaginationParams pagination,
         CancellationToken ct);
+    
+    Task<Result> MarkAsReadAsync(string channelId, string userId, CancellationToken ct);
+
 
     /// <summary>Edit the body of an existing message. Only the author may edit.</summary>
     Task<Result<MessageDto>> UpdateAsync(string messageId, string userId, UpdateMessageDto dto, CancellationToken ct);

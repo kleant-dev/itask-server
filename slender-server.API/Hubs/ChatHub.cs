@@ -1,4 +1,5 @@
 // slender-server.API/Hubs/ChatHub.cs
+
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
@@ -26,27 +27,33 @@ public sealed class ChatHub(
     // ── Auth helper ───────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Resolves the application User.Id from the JWT NameIdentifier claim.
+    /// Resolves the application userId from the JWT NameIdentifier claim.
     /// IUserContext cannot be used here — it reads from IHttpContextAccessor.HttpContext
     /// which is null inside SignalR hub method invocations.
     /// </summary>
-    private async Task<string> GetUserIdAsync(CancellationToken ct)
+    private string GetUserId()
     {
-        var identityId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(identityId))
-            throw new HubException("Not authenticated.");
-
-        var userId = await userRepository.GetIdByIdentityIdAsync(identityId, ct);
-        if (string.IsNullOrEmpty(userId))
+        var userId = Context.Items["userId"];
+        if (userId is null)
+        {
+            throw new HubException("User not found.");
+        }
+        string parsedUserId = (string)userId;
+        if (string.IsNullOrEmpty(parsedUserId))
             throw new HubException("User not found.");
 
-        return userId;
+        return parsedUserId;
     }
 
     // ── Connection lifecycle ──────────────────────────────────────────────────
 
     public override async Task OnConnectedAsync()
     {
+        var identityId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(identityId))
+            throw new HubException("Not authenticated.");
+        var userId = await userRepository.GetIdByIdentityIdAsync(identityId,null);
+        Context.Items["userId"] = userId;
         await base.OnConnectedAsync();
     }
 
@@ -60,7 +67,7 @@ public sealed class ChatHub(
     public async Task JoinChannel(string channelId)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
         var accessResult = await channelService.GetByIdAsync(channelId, userId, ct);
         if (!accessResult.IsSuccess)
             throw new HubException($"Access denied to channel: {accessResult.ErrorMessage}");
@@ -78,7 +85,7 @@ public sealed class ChatHub(
     public async Task SendMessage(SendMessageRequest request)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         var dto = new CreateMessageDto
         {
@@ -101,7 +108,7 @@ public sealed class ChatHub(
     public async Task EditMessage(EditMessageRequest request)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         var dto = new UpdateMessageDto { Body = request.Body };
         var result = await messageService.UpdateAsync(request.MessageId, userId, dto, ct);
@@ -116,7 +123,7 @@ public sealed class ChatHub(
     public async Task DeleteMessage(string messageId)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         var result = await messageService.DeleteAsync(messageId, userId, ct);
         if (!result.IsSuccess)
@@ -130,7 +137,7 @@ public sealed class ChatHub(
     public async Task Typing(string channelId)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         await Clients
             .OthersInGroup(ChannelGroup(channelId))
@@ -142,7 +149,7 @@ public sealed class ChatHub(
     public async Task StartCall(StartCallRequest request)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         if (!string.Equals(userId, request.FromUserId, StringComparison.Ordinal))
             throw new HubException("Caller mismatch.");
@@ -180,10 +187,43 @@ public sealed class ChatHub(
             }, cancellationToken: ct);
     }
 
+    public async Task MarkMessagesAsRead(string channelId)
+    {
+        var ct = Context.ConnectionAborted;
+        var userId = GetUserId();
+
+        var result = await messageService.MarkAsReadAsync(channelId, userId, ct);
+        if (!result.IsSuccess)
+        {
+            logger.LogWarning("Failed to mark messages as read in channel {ChannelId}: {Error}",
+                channelId, result.ErrorMessage);
+            return;
+        }
+
+        var readAtUtc = DateTime.UtcNow;
+
+        // Tell the CALLER their own read was acknowledged (optional, for local state sync)
+        await Clients.Caller.SendAsync("MessagesMarkedRead", new
+        {
+            ChannelId = channelId,
+            ReadAtUtc = readAtUtc
+        }, cancellationToken: ct);
+
+        // Tell OTHERS (i.e. the message authors) to show blue ticks
+        await Clients
+            .OthersInGroup(ChannelGroup(channelId))
+            .SendAsync("MessagesRead", new
+            {
+                ChannelId = channelId,
+                ReadByUserId = userId,
+                ReadAtUtc = readAtUtc   // messages with createdAtUtc <= this are now "read"
+            }, cancellationToken: ct);
+    }
+
     public async Task AcceptCall(AcceptCallRequest request)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
             return;
@@ -202,7 +242,7 @@ public sealed class ChatHub(
     public async Task RejectCall(RejectCallRequest request)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
             return;
@@ -223,7 +263,7 @@ public sealed class ChatHub(
     public async Task EndCall(EndCallRequest request)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
             return;
@@ -244,7 +284,7 @@ public sealed class ChatHub(
     public async Task CallSignal(CallSignalRequest request)
     {
         var ct = Context.ConnectionAborted;
-        var userId = await GetUserIdAsync(ct);
+        var userId = GetUserId();
 
         if (!CallChannelMap.TryGetValue(request.CallId, out var channelId))
             return;
@@ -274,6 +314,8 @@ public sealed record SendMessageRequest(
 public sealed record EditMessageRequest(
     string MessageId,
     string Body);
+
+public sealed record MarkAsReadRequest(string ChannelId);
 
 public sealed record StartCallRequest(
     string CallId,

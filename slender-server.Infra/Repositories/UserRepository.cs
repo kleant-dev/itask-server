@@ -8,12 +8,12 @@ namespace slender_server.Infra.Repositories;
 
 public sealed class UserRepository(ApplicationDbContext dbContext) : Repository<User>(dbContext), IUserRepository
 {
-    public async Task<string?> GetIdByIdentityIdAsync(string identityId, CancellationToken ct)
+    public async Task<string?> GetIdByIdentityIdAsync(string identityId, CancellationToken? ct)
     {
         return await DbSet
             .Where(u => u.IdentityId == identityId)
             .Select(u => u.Id)
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefaultAsync();
     }
     
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)

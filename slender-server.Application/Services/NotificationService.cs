@@ -1,14 +1,17 @@
 using slender_server.Application.DTOs.NotificationDTOs;
 using slender_server.Application.Interfaces.Services;
 using slender_server.Application.Models.Common;
+using slender_server.Application.Models.Pagination;
+using slender_server.Application.Models.Sorting;
 using slender_server.Domain.Entities;
 using slender_server.Domain.Interfaces;
 
-namespace slender_server.Infra.Services;
+namespace slender_server.Application.Services;
 
 public sealed class NotificationService(
     IRepository<Notification> notificationRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IPaginationService paginationService)
     : INotificationService
 {
     public async Task<Result<NotificationDto>> CreateNotificationAsync(
@@ -22,17 +25,24 @@ public sealed class NotificationService(
         return Result<NotificationDto>.Success(entity.ToDto());
     }
 
-    public async Task<Result<IReadOnlyCollection<NotificationDto>>> GetUserNotificationsAsync(
+    public async Task<Result<PagedResponse<NotificationDto>>> GetUserNotificationsAsync(
         string userId,
+        PaginationParams pagination,
+        SortParams sort,
         CancellationToken ct = default)
     {
-        var all = await notificationRepository.GetAllAsync(predicate:(n)=>n.RecipientId == userId,ct:ct);
-        var userNotifications = all
-            .OrderByDescending(n => n.CreatedAtUtc)
-            .Select(n => n.ToDto())
-            .ToArray();
+        var pagedResult = await notificationRepository.GetPagedAsync(
+            pagination.PageNumber,
+            pagination.PageSize,
+            filter: n => n.RecipientId == userId,
+            orderBy: q => q.OrderByDescending(n => n.CreatedAtUtc),
+            ct: ct);
 
-        return Result<IReadOnlyCollection<NotificationDto>>.Success(userNotifications);
+        var pagedResponse = paginationService.MapToPagedResponse(
+            pagedResult, 
+            n => n.ToDto());
+
+        return Result<PagedResponse<NotificationDto>>.Success(pagedResponse);
     }
 
     public async Task<Result<NotificationDto>> UpdateNotificationAsync(

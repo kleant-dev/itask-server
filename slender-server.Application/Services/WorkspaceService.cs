@@ -1,6 +1,5 @@
 // slender-server.Infra/Services/WorkspaceService.cs
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+
 using slender_server.Application.DTOs.WorkspaceDTOs;
 using slender_server.Application.DTOs.WorkspaceInviteDTOs;
 using slender_server.Application.DTOs.WorkspaceMemberDTOs;
@@ -10,9 +9,8 @@ using slender_server.Application.Models.Pagination;
 using slender_server.Application.Models.Sorting;
 using slender_server.Domain.Entities;
 using slender_server.Domain.Interfaces;
-using slender_server.Domain.Models;
 
-namespace slender_server.Infra.Services;
+namespace slender_server.Application.Services;
 
 public sealed class WorkspaceService(
     IWorkspaceRepository workspaceRepository,
@@ -20,9 +18,7 @@ public sealed class WorkspaceService(
     IWorkspaceInviteRepository workspaceInviteRepository,
     IUserRepository userRepository,
     IUnitOfWork unitOfWork,
-    IPaginationService paginationService,
-    ISortingService sortingService,
-    ILogger<WorkspaceService> logger)
+    IPaginationService paginationService)
     : IWorkspaceService
 {
     // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -65,15 +61,7 @@ public sealed class WorkspaceService(
         await workspaceRepository.AddAsync(workspace, cancellationToken);
         await workspaceMemberRepository.AddAsync(ownerMember, cancellationToken);
 
-        try
-        {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("slug") == true ||
-                                           ex.InnerException?.Message.Contains("unique") == true)
-        {
-            return Result<WorkspaceDto>.Failure($"A workspace with slug '{dto.Slug}' already exists",ErrorType.Conflict);
-        }
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<WorkspaceDto>.Success(workspace.ToDto());
     }
@@ -87,27 +75,16 @@ public sealed class WorkspaceService(
         string? fields,
         CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Fetching workspaces for user {UserId}", userId);
         var query = workspaceRepository.Query()
             .Where(w => w.Members.Any(m => m.UserId == userId));
-        logger.LogInformation("Query built for user {UserId}, found {Count} workspaces", userId, await query.CountAsync(cancellationToken));
-        // Count before ordering — ORDER BY on a COUNT query is wasteful.
-        var totalCount = await query.CountAsync(cancellationToken);
 
-        // ApplySort<TDto, TEntity> resolves the registered WorkspaceSortMapping from DI.
-        // SortParams.Sort is the sort string (e.g. "name asc, createdAt desc").
-        query = sortingService.ApplySort<WorkspaceDto, Workspace>(
-            query,
+        var pagedResult = await workspaceRepository.GetUserWorkspacesAsync(
+            userId,
+            pagination.PageNumber,
+            pagination.PageSize,
             sort.Sort,
-            defaultOrderBy: nameof(Workspace.CreatedAtUtc) + " DESC");
-
-        var items = await query
-            .Skip((pagination.PageNumber - 1) * pagination.PageSize)
-            .Take(pagination.PageSize)
-            .ToListAsync(cancellationToken);
-
+            cancellationToken);
         // IPaginationService.MapToPagedResponse expects a PagedResult<TEntity>.
-        var pagedResult = new PagedResult<Workspace>(items, totalCount, pagination.PageNumber, pagination.PageSize);
         var pagedResponse = paginationService.MapToPagedResponse(pagedResult, w => w.ToDto());
 
         return Result<PagedResponse<WorkspaceDto>>.Success(pagedResponse);
@@ -189,23 +166,14 @@ public sealed class WorkspaceService(
             return Result<PagedResponse<WorkspaceMemberDto>>.Failure("You do not have access to this workspace",ErrorType.Forbidden);
         }
 
-        var query = workspaceMemberRepository.Query()
-            .Include(m => m.User)
-            .Where(m => m.WorkspaceId == workspaceId);
+        var pagedResult = await workspaceMemberRepository
+            .GetWorkspaceMembersAsync(
+                workspaceId,
+                pagination.PageNumber,
+                pagination.PageSize,
+                role,
+                cancellationToken);
 
-        if (!string.IsNullOrEmpty(role) && Enum.TryParse<WorkspaceRole>(role, true, out var roleEnum))
-            query = query.Where(m => m.Role == roleEnum);
-
-        // Count on the filtered query (before ordering) so total reflects the role filter.
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderBy(m => m.JoinedAtUtc)
-            .Skip((pagination.PageNumber - 1) * pagination.PageSize)
-            .Take(pagination.PageSize)
-            .ToListAsync(cancellationToken);
-
-        var pagedResult = new PagedResult<WorkspaceMember>(items, totalCount, pagination.PageNumber, pagination.PageSize);
         var pagedResponse = paginationService.MapToPagedResponse(pagedResult, m => m.ToDto());
 
         return Result<PagedResponse<WorkspaceMemberDto>>.Success(pagedResponse);

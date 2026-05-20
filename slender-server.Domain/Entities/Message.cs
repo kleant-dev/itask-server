@@ -12,6 +12,7 @@ public sealed class Message
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
     public DateTime? DeletedAtUtc { get; set; } 
+    public DateTime? ReadAtUtc { get; set; }
     
     public Channel Channel { get; set; } = null!;
     public User Author { get; set; } = null!;
